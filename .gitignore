@@ -4,13 +4,6 @@
 #
 Library
 .utmp/
-/[Ll]ibrary/
-/[Tt]emp/
-/[Oo]bj/
-/[Bb]uild/
-/[Bb]uilds/
-/[Ll]ogs/
-/[Uu]ser[Ss]ettings/
 *.log
 Library
 .idea
@@ -19,6 +12,7 @@ UserSettings
 Temp
 obj
 Logs
+Bluids
 # MemoryCaptures can get excessive in size.
 # They also could contain extremely sensitive data
 /[Mm]emoryCaptures/
