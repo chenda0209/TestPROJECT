@@ -41,22 +41,22 @@ public class InstancedGrassSpawner : MonoBehaviour
             Debug.LogWarning("GPU Instancing was automatically enabled on the material.");
         }
         renderParams = new(grassMaterial);
-        
+
         // 4. 计算并存储所有实例的变换矩阵
         GenerateMatrices(num, radius);
 
         // 销毁预制件，因为我们不再需要它在场景中的实例
         // 注意：如果你需要草地具有碰撞体或 MonoBehaviour，Instancing 方法不适用。
-        Destroy(grassPrefab);
+        // Destroy(grassPrefab);
     }
-private Plane[] frustumPlanes;
-private List<Matrix4x4> visibleMatrices = new List<Matrix4x4>();
+    private Plane[] frustumPlanes;
+    private List<Matrix4x4> visibleMatrices = new List<Matrix4x4>();
 
-void Update()
-{
-    // 在 Update 中更新视锥体平面（通常只需每帧更新一次）
-    frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
-}
+    void Update()
+    {
+        // 在 Update 中更新视锥体平面（通常只需每帧更新一次）
+        frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
+    }
     // --- 矩阵生成函数 ---
     public void GenerateMatrices(int totalNum, float radius)
     {
