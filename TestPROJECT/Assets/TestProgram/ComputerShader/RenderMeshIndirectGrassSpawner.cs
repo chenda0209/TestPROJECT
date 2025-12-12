@@ -61,7 +61,10 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         // 获取线程组尺寸（仅执行这一次）
         cullComputerShader.GetKernelThreadGroupSizes(kernelHandle, out threadGroupSizeX, out threadGroupSizeY, out _);
 
-        // 声明并计算computeBuffer大小,这里计算的是物体的数据结构*数量
+        // 声明并计算computeBuffer大小,这里计算的是物体的数据结构*数量,在GPU Memory显存内划分并创建了一块区域，用于存储
+        // ComputeBuffer 是 Unity 提供的一种 GPU 资源。它的主要目的是在 CPU 和 GPU 之间高效地传递大量数据，
+        // 由于 GPU 访问显存比访问系统内存（RAM）快得多，所以将数据放在 ComputeBuffer 中（即在显存中）是实现高性能渲染和计算的关键。
+        // Shader 通过一个特殊的输入（通常是 StructuredBuffer，StructuredBuffer的类型通常与ComputeBufferType对应）来访问这些数据。
         int grassStride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GrassData));
         computeBuffer = new ComputeBuffer(instanceCount, grassStride, ComputeBufferType.Default);
 
