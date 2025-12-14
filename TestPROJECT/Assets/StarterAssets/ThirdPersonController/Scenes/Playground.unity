@@ -154,6 +154,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67ac2f900a66ee24bb159192c4796b2c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  grassPrefab: {fileID: 0}
+  cullComputerShader: {fileID: 0}
+  instanceCount: 100000
 --- !u!4 &21168623
 Transform:
   m_ObjectHideFlags: 0
@@ -1118,7 +1121,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1558968206}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 57c7d78b88e56dd44aa1fb4aa0113165, type: 3}
   m_Name: 
