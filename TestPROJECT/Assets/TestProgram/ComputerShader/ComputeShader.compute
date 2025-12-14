@@ -4,14 +4,13 @@
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
 // RWTexture2D<float4> Result;
-
 struct GrassData
 {
     float4 worldPos;
     float4 r;
     float4x4 worldMatrix;
 };
-// 物体原始数据
+// 物体原始数据，StructuredBuffer只读，RWStructuredBuffer为可读写，AppendStructuredBuffer只写
 StructuredBuffer<GrassData> _GrassDataBuffer;
 // AppendStructuredBuffer 用于接收剔除后的结果
 AppendStructuredBuffer<uint> _VisibleIndexBuffer;
@@ -21,9 +20,9 @@ uint _InstanceCount;
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    uint index = id.x;
+    // uint index = id.x;
     // 将 3D 线程 ID 映射到 1D 实例索引
-    // uint index = id.x + id.y * 8 + id.z * (8 * 8); // 假设您使用 8x8x1 线程组
+    uint index = id.x + id.y * 8 + id.z * (8 * 8); // 假设您使用 8x8x1 线程组
     if (index >= _InstanceCount)
     {
         return; // 防止越界

@@ -22,10 +22,13 @@ Shader "Custom/Grass"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma multi_compile_instancing
+            // #pragma multi_compile_instancing
             // #pragma multi_compile _ALPHATEST_ON
+            #pragma multi_compile_fragment _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile_fragment _SHADOWS_SOFT
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl" // ✅ 包含光照函数和宏
+            // #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
             // Sampler2D(_MainTex) ;
             // SAMPLER(_MainTex_ST) ;
             // CBUFFER_START(UnityPerMaterial)
@@ -42,22 +45,35 @@ Shader "Custom/Grass"
             sampler2D _MainTex;
 
             sampler2D _NoiseTex;
-            
+            struct GrassData
+            {
+                float4 worldPos;
+                float4 r;
+                float4x4 worldMatrix;
+            };
+            StructuredBuffer<GrassData> _GrassDataBuffer;
+            // AppendStructuredBuffer 用于接收剔除后的结果
+            StructuredBuffer<uint> _VisibleIndexBuffer;
 
             struct appdata
             {
                 float4 vertex : POSITION;
                 float4 vcolor : COLOR;
-                float2 uv : TEXCOORD0;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
+                float3 normal : NORMAL;
+                // float2 uv : TEXCOORD0;
+                // uint vertexID : SV_VertexID;
+                uint instanceID : SV_INSTANCEID;
+                // UNITY_VERTEX_INPUT_INSTANCE_ID
             };
             // UNITY_INSTANCING_BUFFER_START(Props)
             //     UNITY_DEFINE_INSTANCED_PROP(float4, _Color)
             // UNITY_INSTANCING_BUFFER_END(Props)
             struct v2f
             {
-                float2 uv : TEXCOORD0;
+                // float2 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
+                float3 normal : NORMAL;
+                float3 positionWS: TEXCOORD3;
                 float4 vcolor : TEXCOORD2;
                 // UNITY_VERTEX_INPUT_INSTANCE_ID // necessary only if you want to access instanced properties in fragment Shader.
             };
@@ -67,11 +83,31 @@ Shader "Custom/Grass"
             v2f vert (appdata v)
             {
                 v2f o;
-                UNITY_SETUP_INSTANCE_ID(v);
-                
-                // 1. Instancing 友好的获取世界坐标 (用于噪声采样)
-                float3 worldPos = TransformObjectToWorld(v.vertex.xyz);
+                // 必须在函数开头调用，用于设置和初始化实例 ID
+                // UNITY_SETUP_INSTANCE_ID(v);
 
+                // 2. ✅ 获取当前渲染实例的 ID (0到N-1，N是可见实例数)
+                // 使用 URP 最可靠的内置变量/宏：
+                // uint instanceID = unity_InstanceID; 
+                uint instanceID = v.instanceID;
+                // 3. ✅ 通过 instanceID 查找原始 GrassData 的索引
+                // instanceID 是 RenderMeshIndirect 调用的第 k 个实例
+                uint originalIndex = _VisibleIndexBuffer[instanceID]; 
+
+                // 4. ✅ 通过原始索引获取实例数据
+                GrassData instanceData = _GrassDataBuffer[originalIndex];
+                
+                // 5. 获取实例的世界矩阵和位置
+                float4x4 worldMatrix = instanceData.worldMatrix;
+                float4 originalLocalPos = v.vertex;
+
+                // --- 【风场计算开始】 ---
+
+                // **使用世界矩阵计算当前顶点在世界空间的位置（未位移前）**
+                float3 worldPos = mul(worldMatrix, originalLocalPos).xyz;
+
+                // 替换您原来的错误行
+                
                 // --- 【风场计算，保持不变】 ---
                 float2 worldUV = worldPos.xz; 
                 float2 noiseUV = TRANSFORM_TEX(worldUV, _NoiseTex); 
@@ -97,6 +133,7 @@ Shader "Custom/Grass"
                 
                 // 3. 将位移应用到世界坐标
                 float3 finalWorldPos = worldPos;
+                o.positionWS = worldPos;
                 finalWorldPos.xyz += finalDisplacementVectorWS; 
                 
                 // 4. 投影到裁剪空间 (Instancing 友好的最终步骤)
@@ -105,6 +142,8 @@ Shader "Custom/Grass"
                 // ... 传递颜色和 UV ...
                 o.vcolor = v.vcolor;
                 // o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+
+                o.normal = TransformObjectToWorldNormal(v.normal);
                 return o;
             }
 
@@ -114,7 +153,11 @@ Shader "Custom/Grass"
                 // return UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 // float4 col = tex2D(_MainTex, i.uv);
                 // clip(col.a - _AlphaClip);
-                return i.vcolor.r * _Color;
+                Light light = GetMainLight();
+                real cos = dot(i.normal, light.direction);
+                float4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
+                float shadowAmount = MainLightRealtimeShadow(shadowCoord);
+                return i.vcolor.r * _Color * shadowAmount * cos;
             }
             ENDHLSL
         }

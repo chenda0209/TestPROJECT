@@ -13,7 +13,6 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
 
 
     public ComputeShader cullComputerShader;// 主要GPU着色器，用于剔除摄像机和Hi-z剔除
-    private ComputeBuffer frustumBuffer;// 常量BUFFER，用于传输摄像机六面体
     private RenderTexture resultTexture;
     private ComputeBuffer computeBuffer;// RW读写着色器，基本ComputeBuffer用来传输所有物体的原始数据和包围盒
     private ComputeBuffer appendBuffer; // Append Buffer
@@ -77,17 +76,21 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         // Shader 通过一个特殊的输入（通常是 StructuredBuffer，StructuredBuffer的类型通常与ComputeBufferType对应）来访问这些数据。
         // 如果不使用computeBuffer，也可以使用rendertexture传入数据，一个是SetBuff一个是SetTexture。
         int grassStride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GrassData));
-        computeBuffer = new ComputeBuffer(instanceCount, grassStride, ComputeBufferType.Default);
+        computeBuffer = new ComputeBuffer(instanceCount, grassStride, ComputeBufferType.Default);//普通buffer用的最多的，对应StructuredBuffer 和 RWStructuredBuffer
 
         // 声明并计算frustumBuffer大小，这里传入6个简单的摄像机六面用于剔除，所以使用常量Cbuffer。
         // int frustumStride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(FrustumData));
         // frustumBuffer = new ComputeBuffer(1, frustumStride, ComputeBufferType.Constant);
 
-        // 可见物体的buffer
+        // 可见物体的buffer,只读模式，所以不需要去SetData
         int visibleIndexStride = sizeof(uint);
-        appendBuffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);
+        appendBuffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);//只写buffer，不需要setdata
 
-        args[0] = grassMesh.GetIndexCount(0);
+        args[0] = grassMesh.GetIndexCount(0); // Index Count (不变)
+        args[1] = 0; // Instance Count (必须为0，由CopyCount覆盖)
+        args[2] = 0; // Start Index（通常是0）
+        args[3] = grassMesh.GetBaseVertex(0); // Base Vertex（通常是0）
+        args[4] = 0; // Start Instance
         argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 5, sizeof(uint));
         argsBuffer.SetData(args);
 
@@ -110,33 +113,36 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         {
             // **!!! 您的自定义生成逻辑 !!!**
             // 示例：在 (0, 0, 0) 周围随机生成草地
-            Vector3 randomPos = new Vector3(Random.Range(-50f, 50f), 0f, Random.Range(-50f, 50f));
+            Vector3 randomPos = new Vector3(Random.Range(-20f, 20f), 0f, Random.Range(-20f, 20f));
             // float randomRadius = Random.Range(0.5f, 1.5f);
 
             // 假设您只关心位置，世界矩阵可以从位置、旋转、缩放计算
             Quaternion randomRot = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
-            Vector3 randomScale = Vector3.one * Random.Range(0.1f, 0.2f);
+            Vector3 randomScale = new Vector3(1, 4, 1) * Random.Range(0.02f, 0.1f);
             Matrix4x4 matrix = Matrix4x4.TRS(randomPos, randomRot, randomScale);
 
             // 填充 GrassData 结构体
             initialData[i] = new GrassData
             {
                 worldPos = new Vector4(randomPos.x, randomPos.y, randomPos.z, 1f),
-                r = new Vector4(0.05f, 0f, 0f, 0f), // 将半径存储在 Vector4.x
+                r = new Vector4(0.2f, 0f, 0f, 0f), // 将半径存储在 Vector4.x
                 worldMatrix = matrix
             };
         }
+
+        cullComputerShader.SetInt("_InstanceCount", instanceCount);
+
         // 传输物体数据！CPU只需要一次调用。
         computeBuffer.SetData(initialData);
         // 传输数据后设置computershader，并标记BUFFER的数据名字进行计算。
         cullComputerShader.SetBuffer(kernelHandle, OriginalGrassDataID, computeBuffer);
+        // 设置材质的读写buffer
+        grassMaterial.SetBuffer(OriginalGrassDataID, computeBuffer);
 
-        // uint[] visibleNum = new uint[instanceCount];
-        // // 传输需要剔除数据！CPU只需要一次调用。
-        // appendBuffer.SetData(visibleNum);
         // 传输数据后设置computershader，并标记BUFFER的数据名字进行计算。
         cullComputerShader.SetBuffer(kernelHandle, VisibleGrassDataID, appendBuffer);
-        cullComputerShader.SetInt("_InstanceCount", instanceCount);
+        // 设置材质的读写buffer
+        grassMaterial.SetBuffer(VisibleGrassDataID, appendBuffer);
     }
 
 
@@ -169,21 +175,22 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         Shader.SetGlobalVectorArray(FrustumPlanesID, frustumPlanesArray);
     }
 
-    void Update()
+
+    void LateUpdate()
     {
-        appendBuffer.SetCounterValue(0);
+        appendBuffer.SetCounterValue(0);//清除计数
         PrepareAndSetFrustumPlanes();
         // 2. 【修正 4】调度 Compute Shader (使用一维调度)
         uint totalGroupSize = threadGroupSizeX * threadGroupSizeY;
         int threadGroupsX = Mathf.CeilToInt((float)instanceCount / totalGroupSize);
         cullComputerShader.Dispatch(kernelHandle, threadGroupsX, 1, 1); // Z 必须是 1
+        // int threadGroupsX = Mathf.CeilToInt((float)instanceCount / threadGroupSizeX);
+        // int threadGroupsY = Mathf.CeilToInt((float)instanceCount / threadGroupSizeY);
+        // cullComputerShader.Dispatch(kernelHandle, threadGroupsX, threadGroupsY, 1); // Z 必须是 1
         GraphicsBuffer.CopyCount(appendBuffer, argsBuffer, sizeof(uint));
+        Graphics.RenderMeshIndirect(renderParams, grassMesh, argsBuffer);
     }
 
-    void LateUpdate()
-    {
-        Graphics.RenderMeshIndirect(renderParams, grassMesh, argsBuffer, 1);
-    }
     void OnDisable()
     {
         computeBuffer.Dispose();
