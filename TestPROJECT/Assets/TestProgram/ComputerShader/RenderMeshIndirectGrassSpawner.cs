@@ -28,6 +28,7 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
     // 全局存储视锥体平面的 Vector4 数组
     private Vector4[] frustumPlanesArray = new Vector4[6];
     private static readonly int FrustumPlanesID = Shader.PropertyToID("_FrustumPlanes"); // 缓存 Shader ID
+    private GameObject player;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct GrassData
@@ -51,7 +52,7 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
     void Start()
     {
         if (cam == null) cam = Camera.main;
-
+        if (player == null) player = GameObject.FindGameObjectWithTag("Player");
         // 收集 Mesh 和 Material
         grassMesh = grassPrefab.GetComponent<MeshFilter>().sharedMesh;
         grassMaterial = grassPrefab.GetComponent<MeshRenderer>().sharedMaterial;
@@ -63,7 +64,12 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
             Debug.LogWarning("GPU Instancing was automatically enabled on the material.");
         }
         renderParams = new(grassMaterial);
-        renderParams.camera = cam;
+        // 设置camera可以设定是否只在play视图里显示
+        // renderParams.camera = cam;
+        Bounds playerBounds = new(Vector3.zero, new Vector3(40f, 1f, 40f));
+        // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
+        renderParams.worldBounds = playerBounds;
+        // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
 
         // 获取 Compute Shader 中特定函数的唯一标识符（ID或句柄），以便 CPU 能够准确地告诉 GPU “请运行这个函数”。
         kernelHandle = cullComputerShader.FindKernel("CSMain");
@@ -125,7 +131,7 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
             initialData[i] = new GrassData
             {
                 worldPos = new Vector4(randomPos.x, randomPos.y, randomPos.z, 1f),
-                r = new Vector4(0.2f, 0f, 0f, 0f), // 将半径存储在 Vector4.x
+                r = new Vector4(0.4f, 0f, 0f, 0f), // 将半径存储在 Vector4.x
                 worldMatrix = matrix
             };
         }
@@ -187,6 +193,11 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         // int threadGroupsX = Mathf.CeilToInt((float)instanceCount / threadGroupSizeX);
         // int threadGroupsY = Mathf.CeilToInt((float)instanceCount / threadGroupSizeY);
         // cullComputerShader.Dispatch(kernelHandle, threadGroupsX, threadGroupsY, 1); // Z 必须是 1
+
+        // Bounds playerBounds = new(Vector3.zero, Vector3.one * 5);
+        // // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
+        // renderParams.worldBounds = playerBounds;
+        // // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
         GraphicsBuffer.CopyCount(appendBuffer, argsBuffer, sizeof(uint));
         Graphics.RenderMeshIndirect(renderParams, grassMesh, argsBuffer);
     }

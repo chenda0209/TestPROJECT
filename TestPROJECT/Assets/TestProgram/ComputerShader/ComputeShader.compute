@@ -17,12 +17,13 @@ AppendStructuredBuffer<uint> _VisibleIndexBuffer;
 float4 _FrustumPlanes[6];
 uint _InstanceCount;
 
-[numthreads(8,8,1)]
+[numthreads(64,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    // uint index = id.x;
+    uint index = id.x;
+    
     // 将 3D 线程 ID 映射到 1D 实例索引
-    uint index = id.x + id.y * 8 + id.z * (8 * 8); // 假设您使用 8x8x1 线程组
+    // uint index = id.x + id.y * 8 + id.z * (8 * 8); // 假设您使用 8x8x1 线程组
     if (index >= _InstanceCount)
     {
         return; // 防止越界
@@ -60,5 +61,5 @@ void CSMain (uint3 id : SV_DispatchThreadID)
        // 如果可见，将这个实例的原始索引写入 Append Buffer
         _VisibleIndexBuffer.Append(index);
     }
-    // _VisibleIndexBuffer.Append(index);
+
 }

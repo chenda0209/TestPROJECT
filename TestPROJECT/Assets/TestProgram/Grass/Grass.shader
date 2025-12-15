@@ -20,6 +20,7 @@ Shader "Custom/Grass"
         {
             Cull Off
             HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
             // #pragma multi_compile_instancing
@@ -28,20 +29,22 @@ Shader "Custom/Grass"
             #pragma multi_compile_fragment _SHADOWS_SOFT
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl" // ✅ 包含光照函数和宏
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl" // ✅ 包含光照函数和宏
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/GlobalIllumination.hlsl"
             // #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
             // Sampler2D(_MainTex) ;
             // SAMPLER(_MainTex_ST) ;
             // CBUFFER_START(UnityPerMaterial)
-            float4 _Color;
-            float _AlphaClip;
-            float _WaveStrength;
-            float _WaveSpeed_X;
-            float _WaveSpeed_Y;
-            float _WaveTiling;
-            float4 _MainTex_ST;
-            float4 _NoiseTex_ST;
+            half4 _Color;
+            half _AlphaClip;
+            half _WaveStrength;
+            half _WaveSpeed_X;
+            half _WaveSpeed_Y;
+            half _WaveTiling;
+            half4 _MainTex_ST;
+            half4 _NoiseTex_ST;
             // CBUFFER_END
-            float4 _TerrainWind;
+            half4 _TerrainWind;
             sampler2D _MainTex;
 
             sampler2D _NoiseTex;
@@ -60,17 +63,17 @@ Shader "Custom/Grass"
                 float4 vertex : POSITION;
                 float4 vcolor : COLOR;
                 float3 normal : NORMAL;
-                // float2 uv : TEXCOORD0;
+                // half2 uv : TEXCOORD0;
                 // uint vertexID : SV_VertexID;
                 uint instanceID : SV_INSTANCEID;
                 // UNITY_VERTEX_INPUT_INSTANCE_ID
             };
             // UNITY_INSTANCING_BUFFER_START(Props)
-            //     UNITY_DEFINE_INSTANCED_PROP(float4, _Color)
+            //     UNITY_DEFINE_INSTANCED_PROP(half4, _Color)
             // UNITY_INSTANCING_BUFFER_END(Props)
             struct v2f
             {
-                // float2 uv : TEXCOORD0;
+                // half2 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
                 float3 normal : NORMAL;
                 float3 positionWS: TEXCOORD3;
@@ -109,30 +112,30 @@ Shader "Custom/Grass"
                 // 替换您原来的错误行
                 
                 // --- 【风场计算，保持不变】 ---
-                float2 worldUV = worldPos.xz; 
-                float2 noiseUV = TRANSFORM_TEX(worldUV, _NoiseTex); 
+                half2 worldUV = worldPos.xz; 
+                half2 noiseUV = TRANSFORM_TEX(worldUV, _NoiseTex); 
                 noiseUV *= _WaveTiling;
                 noiseUV.x += _Time.y * _WaveSpeed_X; 
                 noiseUV.y += _Time.y * _WaveSpeed_Y; 
-                float noiseValue = tex2Dlod(_NoiseTex, float4(noiseUV, 0, 0)).r;
-                float displacement = noiseValue * _WaveStrength;
+                half noiseValue = tex2Dlod(_NoiseTex, half4(noiseUV, 0, 0)).r;
+                half displacement = noiseValue * _WaveStrength;
                 
                 // 2. 构造世界空间【纯位移向量】
                 // V_displacement = (风向) * (强度) * (顶点权重)
                 // 📢 使用 TransformObjectToWorldDir 宏获取本地风向的世界向量，确保 Instancing 友好
-                float3 windDirectionWS = float3(-_WaveSpeed_X, 0, -_WaveSpeed_Y); // 暂时使用固定世界方向
+                half3 windDirectionWS = half3(-_WaveSpeed_X, 0, -_WaveSpeed_Y); // 暂时使用固定世界方向
                 
-                float heightWeight = v.vcolor.r; // 假设 v.vcolor.r 是权重 (0=底部, 1=顶部)
+                half heightWeight = pow(v.vcolor.r, 2); // 假设 v.vcolor.r 是权重 (0=底部, 1=顶部)
 
                 // 弯曲/位移的幅度
-                float bendMagnitude = displacement * heightWeight;
+                half bendMagnitude = displacement * heightWeight;
 
                 // 构造最终的世界空间位移向量
                 // 注意：将 windDirectionWS 标准化，以防它的长度不是1
-                float3 finalDisplacementVectorWS = normalize(windDirectionWS) * bendMagnitude;
+                half3 finalDisplacementVectorWS = normalize(windDirectionWS) * bendMagnitude;
                 
                 // 3. 将位移应用到世界坐标
-                float3 finalWorldPos = worldPos;
+                half3 finalWorldPos = worldPos;
                 o.positionWS = worldPos;
                 finalWorldPos.xyz += finalDisplacementVectorWS; 
                 
@@ -143,21 +146,31 @@ Shader "Custom/Grass"
                 o.vcolor = v.vcolor;
                 // o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 
-                o.normal = TransformObjectToWorldNormal(v.normal);
+                o.normal = TransformObjectToWorldNormal(v.normal) + finalDisplacementVectorWS * 2;
                 return o;
             }
 
-            float4 frag (v2f i) : SV_Target
+            half4 frag (v2f i) : SV_Target
             {
                 // UNITY_SETUP_INSTANCE_ID(i); // necessary only if any instanced properties are going to be accessed in the fragment Shader.
                 // return UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
-                // float4 col = tex2D(_MainTex, i.uv);
+                // half4 col = tex2D(_MainTex, i.uv);
                 // clip(col.a - _AlphaClip);
-                Light light = GetMainLight();
-                real cos = dot(i.normal, light.direction);
-                float4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
-                float shadowAmount = MainLightRealtimeShadow(shadowCoord);
-                return i.vcolor.r * _Color * shadowAmount * cos;
+                half alpha = 1;
+                BRDFData brdfData;
+                InitializeBRDFData(_Color.rgb, 0, half3(1, 1, 1), 0, alpha, brdfData);
+
+                half4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
+                Light light = GetMainLight(shadowCoord);
+                half shadowAmount = MainLightRealtimeShadow(shadowCoord);
+                half lambert = LightingLambert(light.color, light.direction, i.normal);
+                
+                half3 viewDir = GetWorldSpaceNormalizeViewDir(i.positionWS);
+                half3 specular = DirectBRDFSpecular(brdfData, i.normal, light.direction, viewDir);
+                // half3 brdf = DirectBRDF(brdfData, i.normal, light.direction, viewDir) * light.color * lambert;
+                half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * lambert * shadowAmount;
+
+                return half4(brdf * i.vcolor.r, 1);
             }
             ENDHLSL
         }
