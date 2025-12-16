@@ -192,15 +192,15 @@ Material:
     - _Surface: 0
     - _UVSec: 0
     - _WaveSpeed: 0.19
-    - _WaveSpeed_X: 0.165
-    - _WaveSpeed_Y: 0
+    - _WaveSpeed_X: 0.66
+    - _WaveSpeed_Y: -0.08
     - _WaveStrength: 1
-    - _WaveTiling: 0.05
+    - _WaveTiling: 0.057
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:
     - _BaseColor: {r: 0, g: 1, b: 0.28235292, a: 1}
-    - _Color: {r: 0, g: 1, b: 0.28235292, a: 1}
+    - _Color: {r: 0, g: 1, b: 0.4512949, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999957, g: 0.19999957, b: 0.19999957, a: 0.064}
   m_BuildTextureStacks: []

@@ -15,22 +15,25 @@ Shader "Custom/Grass"
     {
         // Tags { "RenderType"="Opaque" }
         // LOD 100
-
+        
         Pass
         {
-            Cull Off
+            Cull Back
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
             // #pragma multi_compile_instancing
             // #pragma multi_compile _ALPHATEST_ON
-            #pragma multi_compile_fragment _MAIN_LIGHT_SHADOWS_CASCADE
-            #pragma multi_compile_fragment _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl" // ✅ 包含光照函数和宏
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl" // ✅ 包含光照函数和宏
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/GlobalIllumination.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceTransforms.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+            
             // #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
             // Sampler2D(_MainTex) ;
             // SAMPLER(_MainTex_ST) ;
@@ -109,6 +112,7 @@ Shader "Custom/Grass"
                 // **使用世界矩阵计算当前顶点在世界空间的位置（未位移前）**
                 float3 worldPos = mul(worldMatrix, originalLocalPos).xyz;
 
+
                 // 替换您原来的错误行
                 
                 // --- 【风场计算，保持不变】 ---
@@ -136,17 +140,18 @@ Shader "Custom/Grass"
                 
                 // 3. 将位移应用到世界坐标
                 half3 finalWorldPos = worldPos;
-                o.positionWS = worldPos;
-                finalWorldPos.xyz += finalDisplacementVectorWS; 
-                
+                finalWorldPos += finalDisplacementVectorWS; 
+                o.positionWS = finalWorldPos;
                 // 4. 投影到裁剪空间 (Instancing 友好的最终步骤)
                 o.vertex = TransformWorldToHClip(finalWorldPos.xyz);
                 
                 // ... 传递颜色和 UV ...
                 o.vcolor = v.vcolor;
                 // o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+                float4x4 worldMatrixIT = transpose(Inverse(worldMatrix));
+                float3 worldNormal = mul((float3x3)worldMatrixIT, v.normal).xyz + finalDisplacementVectorWS;
+                o.normal = TransformObjectToWorldNormal(v.normal);
 
-                o.normal = TransformObjectToWorldNormal(v.normal) + finalDisplacementVectorWS * 2;
                 return o;
             }
 
@@ -167,10 +172,10 @@ Shader "Custom/Grass"
                 
                 half3 viewDir = GetWorldSpaceNormalizeViewDir(i.positionWS);
                 half3 specular = DirectBRDFSpecular(brdfData, i.normal, light.direction, viewDir);
-                // half3 brdf = DirectBRDF(brdfData, i.normal, light.direction, viewDir) * light.color * lambert;
-                half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * lambert * shadowAmount;
+                half3 brdf = DirectBRDF(brdfData, i.normal, light.direction, viewDir) * light.color * lambert * light.shadowAttenuation ;
+                // half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * lambert * light.color * light.shadowAttenuation ;
 
-                return half4(brdf * i.vcolor.r, 1);
+                return half4(light.color * lambert * light.shadowAttenuation * _Color.rgb, 1);
             }
             ENDHLSL
         }
