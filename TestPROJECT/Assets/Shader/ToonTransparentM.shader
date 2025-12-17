@@ -41,7 +41,7 @@ Shader "ZombieSurvivors/ToonTransparentM"
     {
         Tags
         {
-            "RenderPipeline" = "UniversalRenderPipeline"
+            "RenderPipeline" = "UniversalPipeline"
             "Queue" = "Transparent"
             "RenderType" = "Transparent"
         }
@@ -101,6 +101,7 @@ Shader "ZombieSurvivors/ToonTransparentM"
             #pragma shader_feature_local _FRESNEL_ON
 
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS
             #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS_CASCADE
 
 

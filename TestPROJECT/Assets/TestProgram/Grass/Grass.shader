@@ -13,18 +13,24 @@ Shader "Custom/Grass"
     }
     SubShader
     {
-        // Tags { "RenderType"="Opaque" }
-        // LOD 100
+        Tags 
+        {
+            "RenderPipeline" = "UniversalPipeline"
+            "Queue" = "Geometry"
+        }
+        LOD 100
         
         Pass
         {
-            Cull Back
+            Tags {"LightMode" = "UniversalForward"}
+            Cull Off
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
             // #pragma multi_compile_instancing
             // #pragma multi_compile _ALPHATEST_ON
+            #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS
             #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -40,10 +46,9 @@ Shader "Custom/Grass"
             // CBUFFER_START(UnityPerMaterial)
             half4 _Color;
             half _AlphaClip;
-            half _WaveStrength;
             half _WaveSpeed_X;
             half _WaveSpeed_Y;
-            half _WaveTiling;
+            half _WaveStrength;
             half4 _MainTex_ST;
             half4 _NoiseTex_ST;
             // CBUFFER_END
@@ -69,7 +74,8 @@ Shader "Custom/Grass"
                 // half2 uv : TEXCOORD0;
                 // uint vertexID : SV_VertexID;
                 uint instanceID : SV_INSTANCEID;
-                // UNITY_VERTEX_INPUT_INSTANCE_ID
+                // UNITY_VERTEX_INPUT_INSTANCE_ID 
+                // 应用于不需要RenderMeshIndirect上多数简单应用，像terrain草，SV_INSTANCEID比较偏底层，使用他你没法找到terrain对应的实例ID
             };
             // UNITY_INSTANCING_BUFFER_START(Props)
             //     UNITY_DEFINE_INSTANCED_PROP(half4, _Color)
@@ -89,73 +95,65 @@ Shader "Custom/Grass"
             v2f vert (appdata v)
             {
                 v2f o;
-                // 必须在函数开头调用，用于设置和初始化实例 ID
+                // --- 1. 获取 Indirect 实例数据 ---
                 // UNITY_SETUP_INSTANCE_ID(v);
-
-                // 2. ✅ 获取当前渲染实例的 ID (0到N-1，N是可见实例数)
-                // 使用 URP 最可靠的内置变量/宏：
-                // uint instanceID = unity_InstanceID; 
+                // UNITY_TRANSFER_INSTANCE_ID(v, o);
                 uint instanceID = v.instanceID;
-                // 3. ✅ 通过 instanceID 查找原始 GrassData 的索引
-                // instanceID 是 RenderMeshIndirect 调用的第 k 个实例
                 uint originalIndex = _VisibleIndexBuffer[instanceID]; 
-
-                // 4. ✅ 通过原始索引获取实例数据
                 GrassData instanceData = _GrassDataBuffer[originalIndex];
                 
-                // 5. 获取实例的世界矩阵和位置
                 float4x4 worldMatrix = instanceData.worldMatrix;
-                float4 originalLocalPos = v.vertex;
-
-                // --- 【风场计算开始】 ---
-
-                // **使用世界矩阵计算当前顶点在世界空间的位置（未位移前）**
-                float3 worldPos = mul(worldMatrix, originalLocalPos).xyz;
-
-
-                // 替换您原来的错误行
                 
-                // --- 【风场计算，保持不变】 ---
-                half2 worldUV = worldPos.xz; 
-                half2 noiseUV = TRANSFORM_TEX(worldUV, _NoiseTex); 
-                noiseUV *= _WaveTiling;
-                noiseUV.x += _Time.y * _WaveSpeed_X; 
-                noiseUV.y += _Time.y * _WaveSpeed_Y; 
-                half noiseValue = tex2Dlod(_NoiseTex, half4(noiseUV, 0, 0)).r;
-                half displacement = noiseValue * _WaveStrength;
+                // 提取该株草的世界空间中心位置 (锚点)
+                // 这是为了保证整棵草采样同一个噪声值，防止模型被扯碎
+                float3 worldAnchorPos = float3(worldMatrix[0][3], worldMatrix[1][3], worldMatrix[2][3]);
                 
-                // 2. 构造世界空间【纯位移向量】
-                // V_displacement = (风向) * (强度) * (顶点权重)
-                // 📢 使用 TransformObjectToWorldDir 宏获取本地风向的世界向量，确保 Instancing 友好
-                half3 windDirectionWS = half3(-_WaveSpeed_X, 0, -_WaveSpeed_Y); // 暂时使用固定世界方向
-                
-                half heightWeight = pow(v.vcolor.r, 2); // 假设 v.vcolor.r 是权重 (0=底部, 1=顶部)
+                // 基础世界坐标
+                float3 worldPos = mul(worldMatrix, v.vertex).xyz;
 
-                // 弯曲/位移的幅度
-                half bendMagnitude = displacement * heightWeight;
+                // --- 2. 滚动噪声风场算法 ---
 
-                // 构造最终的世界空间位移向量
-                // 注意：将 windDirectionWS 标准化，以防它的长度不是1
-                half3 finalDisplacementVectorWS = normalize(windDirectionWS) * bendMagnitude;
+                // 风向向量 (由面板定义的 X, Y 速度决定)
+                float2 windDir = normalize(float2(_WaveSpeed_X, _WaveSpeed_Y));
+                float totalSpeed = length(float2(_WaveSpeed_X, _WaveSpeed_Y));
                 
-                // 3. 将位移应用到世界坐标
-                half3 finalWorldPos = worldPos;
-                finalWorldPos += finalDisplacementVectorWS; 
-                o.positionWS = finalWorldPos;
-                // 4. 投影到裁剪空间 (Instancing 友好的最终步骤)
-                o.vertex = TransformWorldToHClip(finalWorldPos.xyz);
+                // 计算滚动的 UV：世界坐标 / 缩放 + 时间 * 速度
+                // _NoiseTex_ST.xy 控制噪声的频率（平铺倍数）
+                float2 scrollingUV = worldAnchorPos.xz * _NoiseTex_ST.xy + _Time.y * windDir * totalSpeed;
+
+                // 使用 tex2Dlod 采样噪声图（顶点着色器必须用 lod 采样）
+                // 采样两个频率不同的点进行叠加，增加随机感
+                float noise1 = tex2Dlod(_NoiseTex, float4(scrollingUV, 0, 0)).r;
+                float noise2 = tex2Dlod(_NoiseTex, float4(scrollingUV * 2.5 + 0.5, 0, 0)).r;
+                float combinedNoise = (noise1 * 0.7 + noise2 * 0.3) * 2.0 - 1.0; // 映射到 -1 ~ 1
+
+                // --- 3. 应用位移 ---
+
+                // 弯曲强度计算：高度权重 (vcolor.r) * 噪声强度 * 基础摆幅
+                // 假设 v.vcolor.r 底部为 0，顶部为 1
+                float heightWeight = v.vcolor.r; 
+                float bendStrength = combinedNoise * _WaveStrength * heightWeight;
+
+                // 沿着风向偏移
+                worldPos.xz += windDir * bendStrength;
                 
-                // ... 传递颜色和 UV ...
+                // 物理补偿：草被吹弯时，高度应该略微下降（保持草的长度不变感）
+                worldPos.y -= abs(bendStrength) * 0.5;
+
+                // --- 4. 转换坐标 ---
+                o.positionWS = worldPos;
+                o.vertex = TransformWorldToHClip(worldPos);
+
+                // --- 5. 法线处理 (如果是广告牌/Billboard，通常法线直接朝上或朝相) ---
+                // 这里使用原本的矩阵变换法线
+                float3x3 worldMat3x3 = (float3x3)worldMatrix;
+                o.normal = normalize(mul(worldMat3x3, v.normal));
+
                 o.vcolor = v.vcolor;
-                // o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-                float4x4 worldMatrixIT = transpose(Inverse(worldMatrix));
-                float3 worldNormal = mul((float3x3)worldMatrixIT, v.normal).xyz + finalDisplacementVectorWS;
-                o.normal = TransformObjectToWorldNormal(v.normal);
-
                 return o;
             }
 
-            half4 frag (v2f i) : SV_Target
+            half4 frag (v2f i , bool isFace : SV_IsFrontFace) : SV_Target
             {
                 // UNITY_SETUP_INSTANCE_ID(i); // necessary only if any instanced properties are going to be accessed in the fragment Shader.
                 // return UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
@@ -165,17 +163,19 @@ Shader "Custom/Grass"
                 BRDFData brdfData;
                 InitializeBRDFData(_Color.rgb, 0, half3(1, 1, 1), 0, alpha, brdfData);
 
+                half3 normal = isFace? i.normal: -i.normal;
+
                 half4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
                 Light light = GetMainLight(shadowCoord);
-                half shadowAmount = MainLightRealtimeShadow(shadowCoord);
-                half lambert = LightingLambert(light.color, light.direction, i.normal);
+                // half shadowAmount = MainLightRealtimeShadow(shadowCoord);
+                half3 lambert = LightingLambert(light.color, light.direction, normal);
                 
                 half3 viewDir = GetWorldSpaceNormalizeViewDir(i.positionWS);
-                half3 specular = DirectBRDFSpecular(brdfData, i.normal, light.direction, viewDir);
-                half3 brdf = DirectBRDF(brdfData, i.normal, light.direction, viewDir) * light.color * lambert * light.shadowAttenuation ;
+                half3 specular = DirectBRDFSpecular(brdfData, normal, light.direction, viewDir);
+                half3 brdf = DirectBRDF(brdfData, normal, light.direction, viewDir) * lambert * light.shadowAttenuation ;
                 // half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * lambert * light.color * light.shadowAttenuation ;
-
-                return half4(light.color * lambert * light.shadowAttenuation * _Color.rgb, 1);
+                float3 GI = SampleSH(normal);
+                return half4(brdf + GI * _Color, 1);
             }
             ENDHLSL
         }

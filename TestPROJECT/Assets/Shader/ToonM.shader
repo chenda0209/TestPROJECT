@@ -38,7 +38,7 @@ Shader "ZombieSurvivors/ToonM"
     {
         Tags
         {
-            "RenderPipeline" = "UniversalRenderPipeline"
+            "RenderPipeline" = "UniversalPipeline"
             "Queue" = "Geometry"
         }
 
@@ -54,8 +54,9 @@ Shader "ZombieSurvivors/ToonM"
         #pragma shader_feature_local_fragment _CLIP_ON 
         #pragma shader_feature_local_fragment _USEEMISSION_ON 
         #pragma shader_feature_local_fragment _USEBREATH_ON
-        #pragma multi_compile_fragment _MAIN_LIGHT_SHADOWS_CASCADE
-        #pragma multi_compile_fragment _SHADOWS_SOFT
+
+        #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+        #pragma multi_compile_fragment _ _SHADOWS_SOFT
 
         CBUFFER_START(UnityPerMaterial)
         real4 _Color;
@@ -113,34 +114,37 @@ Shader "ZombieSurvivors/ToonM"
                 Varyings o;
                 VertexPositionInputs positionInputs = GetVertexPositionInputs(v.vertex.xyz);
                 o.vertex = positionInputs.positionCS;
-
-                o.normal = v.normal;
-
-                o.uv.xy = TRANSFORM_TEX(v.uv.xy, _BaseMap);
-                o.uv.zw = TRANSFORM_TEX(v.uv.xy, _EmissionMap);
                 o.positionWS = positionInputs.positionWS;
+
+
+                // o.uv.xy = TRANSFORM_TEX(v.uv.xy, _BaseMap);
+                // o.uv.zw = TRANSFORM_TEX(v.uv.xy, _EmissionMap);
+                VertexNormalInputs NormalInputs = GetVertexNormalInputs(v.normal);
+                o.normal = NormalInputs.normalWS;
+                // o.positionWS = positionInputs.positionWS;
                 return o;
             }
 
             real4 frag (Varyings i) : SV_Target
             {
-                real4 baseMapColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv.xy);
+                // real4 baseMapColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv.xy);
 
-                VertexNormalInputs normalInputs = GetVertexNormalInputs(i.normal);
-                real3 normalWS = normalInputs.normalWS;
+                real3 normalWS = i.normal;
 
-                #if defined(_CLIP_ON)
-                clip(baseMapColor.a - _AlphaClip);
-                #endif
+                // #if defined(_CLIP_ON)
+                // clip(baseMapColor.a - _AlphaClip);
+                // #endif
 
-                Light light = GetMainLight();
-                real shadowAmount = 1;
-                #if defined(_RECEIVESHADOW_ON)
+                
                 float4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
+                Light light = GetMainLight(shadowCoord);
+                real shadowAmount = MainLightRealtimeShadow(shadowCoord);
+                // real shadowAmount = 1;
+                #if defined(_RECEIVESHADOW_ON)
                 shadowAmount = MainLightRealtimeShadow(shadowCoord);
                 #endif
 
-                real3 outputColor = light.color * light.distanceAttenuation * shadowAmount * baseMapColor.rgb * _Color.rgb;
+                real3 outputColor = light.color * light.shadowAttenuation  * _Color.rgb;
 
                 #if defined(_USEEMISSION_ON)
                 real emissionMap = SAMPLE_TEXTURE2D(_EmissionMap, sampler_EmissionMap, i.uv.zw).r;
@@ -164,8 +168,8 @@ Shader "ZombieSurvivors/ToonM"
                 specular = light.color * calculateSpecular * _SpecularIntensity;
                 #endif
 
-                return real4(outputColor * stepLight + specular, 1);
-
+                return real4(outputColor * stepLight, 1);
+                // return real4(light.color * light.shadowAttenuation * baseMapColor.rgb * _Color.rgb , 1);
             }
             ENDHLSL
         }
