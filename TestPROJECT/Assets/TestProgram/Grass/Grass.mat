@@ -77,7 +77,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _NoiseTex:
         m_Texture: {fileID: 2800000, guid: 8511ab67f149300428a25514dac48115, type: 3}
-        m_Scale: {x: 0.2, y: 0.2}
+        m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _Normal0:
         m_Texture: {fileID: 0}
@@ -184,7 +184,7 @@ Material:
     - _STEPLIGHT: 0
     - _SampleGI: 0
     - _Shininess: 0
-    - _Smoothness: 1
+    - _Smoothness: 0.6
     - _Smoothness0: 0.5
     - _Smoothness1: 0.5
     - _Smoothness2: 0.5
@@ -202,15 +202,15 @@ Material:
     - _USEEMISSION: 0
     - _UVSec: 0
     - _WaveSpeed: 0.19
-    - _WaveSpeed_X: -0.07
-    - _WaveSpeed_Y: 0.09
-    - _WaveStrength: 0.75
-    - _WaveTiling: 0.27
+    - _WaveSpeed_X: 1
+    - _WaveSpeed_Y: 0
+    - _WaveStrength: 1
+    - _WaveTiling: 0.05
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:
     - _BaseColor: {r: 0, g: 1, b: 0.28235292, a: 1}
-    - _Color: {r: 0, g: 0.81886786, b: 0.22589451, a: 1}
+    - _Color: {r: 0, g: 0.8113208, b: 0.30862, a: 1}
     - _DarkColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999957, g: 0.19999957, b: 0.19999957, a: 0.064}

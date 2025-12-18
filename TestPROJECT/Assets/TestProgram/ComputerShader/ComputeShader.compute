@@ -9,6 +9,8 @@ struct GrassData
     float4 worldPos;
     float4 r;
     float4x4 worldMatrix;
+    float4x4 translateMatrix;
+    float4x4 rotateMatrix;
 };
 // 物体原始数据，StructuredBuffer只读，RWStructuredBuffer为可读写，AppendStructuredBuffer只写
 StructuredBuffer<GrassData> _GrassDataBuffer;

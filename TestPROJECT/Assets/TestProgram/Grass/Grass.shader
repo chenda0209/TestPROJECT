@@ -64,6 +64,8 @@ Shader "Custom/Grass"
                 float4 worldPos;
                 float4 r;
                 float4x4 worldMatrix;
+                float4x4 translateMatrix;
+                float4x4 rotateMatrix;
             };
             StructuredBuffer<GrassData> _GrassDataBuffer;
             // AppendStructuredBuffer 用于接收剔除后的结果
@@ -74,7 +76,7 @@ Shader "Custom/Grass"
                 float4 vertex : POSITION;
                 float4 vcolor : COLOR;
                 float3 normal : NORMAL;
-                // half2 uv : TEXCOORD0;
+                half2 uv : TEXCOORD0;
                 // uint vertexID : SV_VertexID;
                 uint instanceID : SV_INSTANCEID;
                 // UNITY_VERTEX_INPUT_INSTANCE_ID 
@@ -85,7 +87,7 @@ Shader "Custom/Grass"
             // UNITY_INSTANCING_BUFFER_END(Props)
             struct v2f
             {
-                // half2 uv : TEXCOORD0;
+                half2 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
                 float3 normal : NORMAL;
                 float3 positionWS: TEXCOORD3;
@@ -292,6 +294,8 @@ Shader "Custom/Grass"
                 uint originalIndex = _VisibleIndexBuffer[instanceID]; 
                 GrassData instanceData = _GrassDataBuffer[originalIndex];
                 float4x4 worldMatrix = instanceData.worldMatrix;
+                float4x4 translateMatrix = instanceData.translateMatrix;
+                float4x4 rotateMatrix = instanceData.rotateMatrix;
                 float3 worldPos = mul(worldMatrix, v.vertex).xyz;
                 
                 // 基础世界坐标
@@ -328,7 +332,7 @@ Shader "Custom/Grass"
                 // 4. 混合应用：先绕 X 旋转，再绕 Z 旋转
                 // 注意：mul(A, B) 在 HLSL 中效果等同于矩阵级联
                 float3x3 combinedRot = mul(rotZ, rotX); 
-                float3 finalPos = mul(combinedRot, v.vertex.xyz);
+                float3 finalPos = mul(combinedRot, mul(rotateMatrix, v.vertex.xyz));
                 float3 positionWS = mul(worldMatrix, float4(finalPos,1)).xyz;
                 // --- 4. 转换坐标 ---
                 o.positionWS = positionWS;
@@ -339,10 +343,11 @@ Shader "Custom/Grass"
                 // 直接给予一个绝对向上的世界空间法线
                 // 我们使用 TransformObjectToWorldNormal(float3(0, 1, 0)) 或者直接 float3(0, 1, 0)
                 
-                float3 normal = normalize(mul(combinedRot, v.normal));
-                o.normal = normalize(mul(worldMat3x3, normal));
+                float3 normal = normalize(mul(rotateMatrix, v.normal));
+                o.normal = normalize(mul(combinedRot, normal));
 
                 o.vcolor = v.vcolor;
+                o.uv = v.uv;
                 return o;
             }
 
@@ -350,8 +355,8 @@ Shader "Custom/Grass"
             {
                 // UNITY_SETUP_INSTANCE_ID(i); // necessary only if any instanced properties are going to be accessed in the fragment Shader.
                 // return UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
-                // half4 col = tex2D(_MainTex, i.uv);
-                // clip(col.a - _AlphaClip);
+                half4 col = tex2D(_MainTex, i.uv);
+                clip(col.a - _AlphaClip);
                 half alpha = 1;
                 BRDFData brdfData;
                 InitializeBRDFData(_Color.rgb, 0, half3(1, 1, 1), _Smoothness, alpha, brdfData);
@@ -361,14 +366,15 @@ Shader "Custom/Grass"
                 half4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
                 Light light = GetMainLight(shadowCoord);
                 // half shadowAmount = MainLightRealtimeShadow(shadowCoord);
-                half3 lambert = LightingLambert(light.color, light.direction, normal);
+                // half3 lambert = LightingLambert(light.color, light.direction, normal);
                 
                 half3 viewDir = GetWorldSpaceNormalizeViewDir(i.positionWS);
                 half3 specular = DirectBRDFSpecular(brdfData, normal, light.direction, viewDir);
-                // half3 brdf = DirectBRDF(brdfData, normal, light.direction, viewDir) * lambert * light.shadowAttenuation ;
-                half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * lambert * light.shadowAttenuation ;
+                // half3 brdf = DirectBRDF(brdfData, normal, light.direction, viewDir) * lambert * light.shadowAttenuation ;//没有使用兰伯特，背光效果太差了
+                half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * light.color * light.shadowAttenuation ;
                 float3 GI = SampleSH(normal);
-                return half4(brdf * i.vcolor + GI * _Color, 1);
+
+                return half4(brdf  * col + GI * _Color, 1);
             }
             ENDHLSL
         }

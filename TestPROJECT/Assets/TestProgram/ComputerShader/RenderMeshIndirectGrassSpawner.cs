@@ -11,6 +11,7 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
     private Material grassMaterial;
     private Camera cam;
 
+    public float boundWidth, boundHeight;
 
     public ComputeShader cullComputerShader;// 主要GPU着色器，用于剔除摄像机和Hi-z剔除
     private RenderTexture resultTexture;
@@ -36,6 +37,8 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         public Vector4 worldPos;
         public Vector4 r;
         public Matrix4x4 worldMatrix;
+        public Matrix4x4 translateMatrix;
+        public Matrix4x4 rotateMatrix;
     }
     // 确保内存布局是连续的、顺序的
     [StructLayout(LayoutKind.Sequential)]
@@ -66,7 +69,7 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         renderParams = new(grassMaterial);
         // 设置camera可以设定是否只在play视图里显示
         // renderParams.camera = cam;
-        Bounds playerBounds = new(Vector3.zero, new Vector3(40f, 1f, 40f));
+        Bounds playerBounds = new(Vector3.zero, new Vector3(boundWidth, 1f, boundHeight));
         // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
         renderParams.worldBounds = playerBounds;
         // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
@@ -82,7 +85,8 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         // Shader 通过一个特殊的输入（通常是 StructuredBuffer，StructuredBuffer的类型通常与ComputeBufferType对应）来访问这些数据。
         // 如果不使用computeBuffer，也可以使用rendertexture传入数据，一个是SetBuff一个是SetTexture。
         int grassStride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GrassData));
-        computeBuffer = new ComputeBuffer(instanceCount, grassStride, ComputeBufferType.Default);//普通buffer用的最多的，对应StructuredBuffer 和 RWStructuredBuffer
+        // 这里表示多少个(第一个参数)数据（第二个参数，最好是通过计算），第三个是类型：普通buffer用的最多的，对应StructuredBuffer 和 RWStructuredBuffer, 有一种特殊的CBUFFER说是必须是96字节，AI说的没有验证
+        computeBuffer = new ComputeBuffer(instanceCount, grassStride, ComputeBufferType.Default);
 
         // 声明并计算frustumBuffer大小，这里传入6个简单的摄像机六面用于剔除，所以使用常量Cbuffer。
         // int frustumStride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(FrustumData));
@@ -119,20 +123,23 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         {
             // **!!! 您的自定义生成逻辑 !!!**
             // 示例：在 (0, 0, 0) 周围随机生成草地
-            Vector3 randomPos = new Vector3(Random.Range(-20f, 20f), 0f, Random.Range(-20f, 20f));
+            Vector3 randomPos = new Vector3(Random.Range(-boundWidth/2, boundWidth/2), 0f, Random.Range(-boundHeight/2, boundHeight/2));
             // float randomRadius = Random.Range(0.5f, 1.5f);
 
             // 假设您只关心位置，世界矩阵可以从位置、旋转、缩放计算
-            // Quaternion randomRot = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
-            Vector3 randomScale = Vector3.one * Random.Range(1f, 1.5f);
+            Quaternion randomRot = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
+            Vector3 randomScale = Vector3.one * Random.Range(0.5f, 1.5f);
             Matrix4x4 matrix = Matrix4x4.TRS(randomPos, Quaternion.identity, randomScale);
-
+            Matrix4x4 translate = Matrix4x4.Translate(randomPos);
+            Matrix4x4 rotate = Matrix4x4.Rotate(randomRot);
             // 填充 GrassData 结构体
             initialData[i] = new GrassData
             {
                 worldPos = new Vector4(randomPos.x, randomPos.y, randomPos.z, 1f),
                 r = new Vector4(0.4f, 0f, 0f, 0f), // 将半径存储在 Vector4.x
-                worldMatrix = matrix
+                worldMatrix = matrix,
+                translateMatrix = translate,
+                rotateMatrix = rotate,
             };
         }
 
