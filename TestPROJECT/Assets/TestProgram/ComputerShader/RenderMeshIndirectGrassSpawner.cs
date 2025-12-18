@@ -185,7 +185,8 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         }
         // 3. 将数组设置给全局 Shader 属性
         // 这是最快、最简洁的传输方式
-        Shader.SetGlobalVectorArray(FrustumPlanesID, frustumPlanesArray);
+        // Shader.SetGlobalVectorArray(FrustumPlanesID, frustumPlanesArray);
+        cullComputerShader.SetVectorArray(FrustumPlanesID, frustumPlanesArray);
     }
 
 

@@ -98,7 +98,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AlphaClip: 0.4
+    - _AlphaClip: 0.6
     - _AlphaToMask: 0
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
@@ -120,16 +120,16 @@ Material:
     - _Parallax: 0.005
     - _QueueOffset: 0
     - _ReceiveShadows: 1
-    - _Smoothness: 0.5
+    - _Smoothness: 0.4
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _WaveSpeed_X: 1
-    - _WaveSpeed_Y: 1
-    - _WaveStrength: 0.83
-    - _WaveTiling: 0.1
+    - _WaveSpeed_X: 0.2
+    - _WaveSpeed_Y: 0.06
+    - _WaveStrength: 8
+    - _WaveTiling: 0.05
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:

@@ -6,7 +6,7 @@ Shader "Custom/Grass"
         _MainTex ("MainTex", 2D) = "white" {}
         _NoiseTex ("NoiseTex", 2D) = "white" {}
         _AlphaClip("_AlphaClip", Range(0, 1)) = 0.1
-        _WaveStrength("_WaveStrength", Range(0, 1)) = 0.1
+        _WaveStrength("_WaveStrength", Range(0, 10)) = 0.1
         _WaveSpeed_X("_WaveSpeed_X", Range(-1, 1)) = 0.1
         _WaveSpeed_Y("_WaveSpeed_Y", Range(-1, 1)) = 0.1
         _Smoothness("Smoothness", Range(0, 1)) = 0.1
@@ -50,6 +50,7 @@ Shader "Custom/Grass"
             half _WaveSpeed_X;
             half _WaveSpeed_Y;
             half _WaveStrength;
+            half _WaveTiling;
             half _Smoothness;
             half4 _MainTex_ST;
             half4 _NoiseTex_ST;
@@ -302,10 +303,10 @@ Shader "Custom/Grass"
                 
                 // 1. 将强度转换为弧度 (假设 1.57 为 90度)
                 float2 wave = float2(_WaveSpeed_X, _WaveSpeed_Y);
-                float noise = tex2Dlod(_NoiseTex, float4(worldPos.xz + _Time.x, 0, 0)).r;
+                float noise = tex2Dlod(_NoiseTex, float4(worldPos.xz * _WaveTiling + wave * _Time.y , 0, 0)).r;
 
-                float angleX = noise * v.vcolor.r * _WaveSpeed_X * 1.5708;
-                float angleZ = noise * v.vcolor.r * _WaveSpeed_Y * 1.5708;
+                float angleX = noise * v.vertex.y * _WaveSpeed_X * 1.5708 * _WaveStrength;
+                float angleZ = noise * v.vertex.y * _WaveSpeed_Y * 1.5708 * _WaveStrength;
 
                 float sx, cx;
                 sincos(angleX, sx, cx);
@@ -359,7 +360,7 @@ Shader "Custom/Grass"
                 clip(col.a - _AlphaClip);
                 half alpha = 1;
                 BRDFData brdfData;
-                InitializeBRDFData(_Color.rgb, 0, half3(1, 1, 1), _Smoothness, alpha, brdfData);
+                InitializeBRDFData(col * _Color.rgb, 0, half3(1, 1, 1), _Smoothness, alpha, brdfData);
 
                 half3 normal = isFace? normalize(i.normal): normalize(-i.normal);
 
@@ -374,7 +375,7 @@ Shader "Custom/Grass"
                 half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * light.color * light.shadowAttenuation ;
                 float3 GI = SampleSH(normal);
 
-                return half4(brdf  * col + GI * _Color, 1);
+                return half4(brdf + GI * col * _Color, 1);
             }
             ENDHLSL
         }
