@@ -36,7 +36,7 @@ public class FPSDisplay : MonoBehaviour
 
             // 格式化输出到文本组件
             // Mathf.RoundToInt 将浮点数转换为整数
-            fpsText.text = $"FPS: {fps}";
+            fpsText.text = $"FPS: {Mathf.RoundToInt(fps)}";
 
             // 重置计时器
             timer = 0f;

@@ -175,50 +175,51 @@ Shader "Custom/Grass"
             // }
 
 
-            v2f vert (appdata v)
-            {
-                v2f o;
-                // --- 1. 获取 Indirect 实例数据 ---
-                uint instanceID = v.instanceID;
-                uint originalIndex = _VisibleIndexBuffer[instanceID]; 
-                GrassData instanceData = _GrassDataBuffer[originalIndex];
-                float4x4 worldMatrix = instanceData.worldMatrix;
+            // v2f vert (appdata v)
+            // {
+            //     v2f o;
+            //     // --- 1. 获取 Indirect 实例数据 ---
+            //     uint instanceID = v.instanceID;
+            //     uint originalIndex = _VisibleIndexBuffer[instanceID]; 
+            //     GrassData instanceData = _GrassDataBuffer[originalIndex];
+            //     float4x4 worldMatrix = instanceData.worldMatrix;
                 
-                // 获取该株草的世界空间中心位置
-                float3 worldAnchorPos = float3(worldMatrix[0][3], worldMatrix[1][3], worldMatrix[2][3]);
+            //     // 获取该株草的世界空间中心位置
+            //     float3 worldAnchorPos = float3(worldMatrix[0][3], worldMatrix[1][3], worldMatrix[2][3]);
                 
-                // 基础世界坐标
-                float3 worldPos = mul(worldMatrix, v.vertex).xyz;
+            //     // 基础世界坐标
+            //     float3 worldPos = mul(worldMatrix, v.vertex).xyz;
 
-                // --- 2. 滚动噪声风场算法 ---
-                float2 windDir = normalize(float2(_WaveSpeed_X, _WaveSpeed_Y));
-                float totalSpeed = length(float2(_WaveSpeed_X, _WaveSpeed_Y));
+            //     // --- 2. 滚动噪声风场算法 ---
+            //     float2 windDir = normalize(float2(_WaveSpeed_X, _WaveSpeed_Y));
+            //     float totalSpeed = length(float2(_WaveSpeed_X, _WaveSpeed_Y));
                 
-                float2 scrollingUV = worldAnchorPos.xz * _NoiseTex_ST.xy + _Time.y * windDir * totalSpeed;
+            //     float2 scrollingUV = worldAnchorPos.xz * _NoiseTex_ST.xy + _Time.y * windDir * totalSpeed;
 
-                float noise1 = tex2Dlod(_NoiseTex, float4(scrollingUV, 0, 0)).r;
-                float noise2 = tex2Dlod(_NoiseTex, float4(scrollingUV * 2.5 + 0.5, 0, 0)).r;
-                float combinedNoise = (noise1 * 0.6 + noise2 * 0.4) * 2.0 - 1.0; 
+            //     float noise1 = tex2Dlod(_NoiseTex, float4(scrollingUV, 0, 0)).r;
+            //     float noise2 = tex2Dlod(_NoiseTex, float4(scrollingUV * 2.5 + 0.5, 0, 0)).r;
+            //     float combinedNoise = (noise1 * 0.6 + noise2 * 0.4) * 2.0 - 1.0; 
 
-                // --- 3. 应用位移 ---
-                float heightWeight = v.vcolor.r; 
-                float bendStrength = combinedNoise * _WaveStrength * heightWeight;
+            //     // --- 3. 应用位移 ---
+            //     float heightWeight = v.vcolor.r; 
+            //     float bendStrength = combinedNoise * _WaveStrength * heightWeight;
 
-                worldPos.xz += windDir * bendStrength;
-                worldPos.y -= abs(bendStrength) * 0.5;
+            //     worldPos.xz += windDir * bendStrength;
+            //     worldPos.y -= abs(bendStrength) * 0.5;
 
-                // --- 4. 转换坐标 ---
-                o.positionWS = worldPos;
-                o.vertex = TransformWorldToHClip(worldPos);
+                
+            //     // --- 4. 转换坐标 ---
+            //     o.positionWS = worldPos;
+            //     o.vertex = TransformWorldToHClip(worldPos);
 
-                // --- 5. 修改法线 (这里是关键) ---
-                // 不再使用 mul(worldMat3x3, v.normal)
-                // 直接给予一个绝对向上的世界空间法线
-                // 我们使用 TransformObjectToWorldNormal(float3(0, 1, 0)) 或者直接 float3(0, 1, 0)
-                o.normal = float3(0, 1, 0);
-                o.vcolor = v.vcolor;
-                return o;
-            }
+            //     // --- 5. 修改法线 (这里是关键) ---
+            //     // 不再使用 mul(worldMat3x3, v.normal)
+            //     // 直接给予一个绝对向上的世界空间法线
+            //     // 我们使用 TransformObjectToWorldNormal(float3(0, 1, 0)) 或者直接 float3(0, 1, 0)
+            //     o.normal = float3(0, 1, 0);
+            //     o.vcolor = v.vcolor;
+            //     return o;
+            // }
 
             // float3 GetDisplacedWorldPos(float3 localPos, float4x4 worldMatrix, float3 worldAnchorPos)
             // {
@@ -281,6 +282,70 @@ Shader "Custom/Grass"
                 
             //     return o;
             // }
+
+
+            v2f vert (appdata v)
+            {
+                v2f o;
+                // --- 1. 获取 Indirect 实例数据 ---
+                uint instanceID = v.instanceID;
+                uint originalIndex = _VisibleIndexBuffer[instanceID]; 
+                GrassData instanceData = _GrassDataBuffer[originalIndex];
+                float4x4 worldMatrix = instanceData.worldMatrix;
+                float3 worldPos = mul(worldMatrix, v.vertex).xyz;
+                
+                // 基础世界坐标
+                
+                // 1. 将强度转换为弧度 (假设 1.57 为 90度)
+                float2 wave = float2(_WaveSpeed_X, _WaveSpeed_Y);
+                float noise = tex2Dlod(_NoiseTex, float4(worldPos.xz + _Time.x, 0, 0)).r;
+
+                float angleX = noise * v.vcolor.r * _WaveSpeed_X * 1.5708;
+                float angleZ = noise * v.vcolor.r * _WaveSpeed_Y * 1.5708;
+
+                float sx, cx;
+                sincos(angleX, sx, cx);
+
+                float sz, cz;
+                sincos(angleZ, sz, cz);
+
+                // 2. 绕 X 轴旋转矩阵 (控制前后倒)
+                float3x3 rotX = float3x3(
+                    1,  0,   0,
+                    0,  cx, -sx,
+                    0,  sx,  cx
+                );
+
+                // 3. 绕 Z 轴旋转矩阵 (控制左右倒)
+                float3x3 rotZ = float3x3(
+                    cz, -sz, 0,
+                    sz,  cz, 0,
+                    0,   0,  1
+                );
+                
+
+                float3x3 worldMat3x3 = (float3x3)worldMatrix;
+                // 4. 混合应用：先绕 X 旋转，再绕 Z 旋转
+                // 注意：mul(A, B) 在 HLSL 中效果等同于矩阵级联
+                float3x3 combinedRot = mul(rotZ, rotX); 
+                float3 finalPos = mul(combinedRot, v.vertex.xyz);
+                float3 positionWS = mul(worldMatrix, float4(finalPos,1)).xyz;
+                // --- 4. 转换坐标 ---
+                o.positionWS = positionWS;
+                o.vertex = TransformWorldToHClip(positionWS);
+
+                // --- 5. 修改法线 (这里是关键) ---
+                // 不再使用 mul(worldMat3x3, v.normal)
+                // 直接给予一个绝对向上的世界空间法线
+                // 我们使用 TransformObjectToWorldNormal(float3(0, 1, 0)) 或者直接 float3(0, 1, 0)
+                
+                float3 normal = normalize(mul(combinedRot, v.normal));
+                o.normal = normalize(mul(worldMat3x3, normal));
+
+                o.vcolor = v.vcolor;
+                return o;
+            }
+
             half4 frag (v2f i , bool isFace : SV_IsFrontFace) : SV_Target
             {
                 // UNITY_SETUP_INSTANCE_ID(i); // necessary only if any instanced properties are going to be accessed in the fragment Shader.
@@ -291,7 +356,7 @@ Shader "Custom/Grass"
                 BRDFData brdfData;
                 InitializeBRDFData(_Color.rgb, 0, half3(1, 1, 1), _Smoothness, alpha, brdfData);
 
-                half3 normal = isFace? i.normal: -i.normal;
+                half3 normal = isFace? normalize(i.normal): normalize(-i.normal);
 
                 half4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
                 Light light = GetMainLight(shadowCoord);
@@ -300,8 +365,8 @@ Shader "Custom/Grass"
                 
                 half3 viewDir = GetWorldSpaceNormalizeViewDir(i.positionWS);
                 half3 specular = DirectBRDFSpecular(brdfData, normal, light.direction, viewDir);
-                half3 brdf = DirectBRDF(brdfData, normal, light.direction, viewDir) * lambert * light.shadowAttenuation ;
-                // half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * lambert * light.color * light.shadowAttenuation ;
+                // half3 brdf = DirectBRDF(brdfData, normal, light.direction, viewDir) * lambert * light.shadowAttenuation ;
+                half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * lambert * light.shadowAttenuation ;
                 float3 GI = SampleSH(normal);
                 return half4(brdf * i.vcolor + GI * _Color, 1);
             }

@@ -123,9 +123,9 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
             // float randomRadius = Random.Range(0.5f, 1.5f);
 
             // 假设您只关心位置，世界矩阵可以从位置、旋转、缩放计算
-            Quaternion randomRot = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
-            Vector3 randomScale = Vector3.one * Random.Range(.5f, 1f);
-            Matrix4x4 matrix = Matrix4x4.TRS(randomPos, randomRot, randomScale);
+            // Quaternion randomRot = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
+            Vector3 randomScale = Vector3.one * Random.Range(1f, 1.5f);
+            Matrix4x4 matrix = Matrix4x4.TRS(randomPos, Quaternion.identity, randomScale);
 
             // 填充 GrassData 结构体
             initialData[i] = new GrassData
