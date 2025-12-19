@@ -1,0 +1,88 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+// RWTexture2D<float4> Result;
+struct GrassData
+{
+    float4 worldPos;
+    float4 r;
+    float4x4 worldMatrix;
+    float4x4 translateMatrix;
+    float4x4 rotateMatrix;
+};
+// 物体原始数据，StructuredBuffer只读，RWStructuredBuffer为可读写，AppendStructuredBuffer只写
+StructuredBuffer<GrassData> _GrassDataBuffer;
+// AppendStructuredBuffer 用于接收剔除后的结果
+AppendStructuredBuffer<uint> _VisibleIndexBuffer;
+AppendStructuredBuffer<uint> _Lod0Buffer;
+AppendStructuredBuffer<uint> _Lod1Buffer;
+
+uint _InstanceCount;
+float _NearThreshold;
+
+float4 _FrustumPlanes[6];
+float4 _CameraPos;
+
+[numthreads(64,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint index = id.x;
+    
+    // 将 3D 线程 ID 映射到 1D 实例索引
+    // uint index = id.x + id.y * 8 + id.z * (8 * 8); // 假设您使用 8x8x1 线程组
+    if (index >= _InstanceCount)
+    {
+        return; // 防止越界
+    }
+
+    // 1. 获取当前实例的数据
+    GrassData grass = _GrassDataBuffer[index];
+
+    // 剔除所需数据
+    float4 center = grass.worldPos; // 包围球中心 (x, y, z)
+    float radius = grass.r.x;       // 包围球半径 (r)
+    
+    bool isVisible = true;
+    
+    // 2. 实现包围球视锥体剔除 (Sphere-Frustum Culling)
+    for (int i = 0; i < 6; i++)
+    {
+        float4 plane = _FrustumPlanes[i];
+        
+        // 计算点到平面的有符号距离：Ax + By + Cz + D
+        // 注意：这里我们使用 float4(x, y, z, 1.0) 和 Plane(A, B, C, D) 的点积
+        float distance = dot(plane, center); 
+        
+        // 如果 距离 < -半径，则整个球体都在平面外部
+        // distance + radius < 0.0 是更常见的写法
+        if (distance < -radius) 
+        {
+            isVisible = false;
+            break; // 发现一个不可见平面，立即停止检查
+        }
+    }
+    
+    if (isVisible)
+    {
+
+        // 如果可见，将这个实例的原始索引写入 Append Buffer
+        // _VisibleIndexBuffer.Append(index);
+        //进阶版本，根据远近使用不同的shader绘制
+        float3 diff = center.xyz - _CameraPos.xyz;
+        float distSq = dot(diff, diff); // 距离的平方，省去了开方运算
+
+        if (distSq < _NearThreshold * _NearThreshold)
+        { 
+            // 近处物体
+            _Lod0Buffer.Append(index);
+        }
+        else
+        {
+            // 远处物体
+            _Lod1Buffer.Append(index);
+        }
+    }
+
+}
