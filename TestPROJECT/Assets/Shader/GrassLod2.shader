@@ -1,4 +1,4 @@
-Shader "Custom/GrassLod1"
+Shader "Custom/GrassLod2"
 {
     Properties
     {
@@ -70,7 +70,7 @@ Shader "Custom/GrassLod1"
             };
             StructuredBuffer<GrassData> _GrassDataBuffer;
             // AppendStructuredBuffer 用于接收剔除后的结果
-            StructuredBuffer<uint> _lod1Buffer;
+            StructuredBuffer<uint> _lod2Buffer;
 
             struct appdata
             {
@@ -293,7 +293,7 @@ Shader "Custom/GrassLod1"
                 v2f o;
                 // --- 1. 获取数据 ---
                 uint instanceID = v.instanceID;
-                uint originalIndex = _lod1Buffer[instanceID]; 
+                uint originalIndex = _lod2Buffer[instanceID]; 
                 GrassData instanceData = _GrassDataBuffer[originalIndex];
                 
                 // 假设 worldMatrix 已经包含了位置、随机旋转和缩放
@@ -358,7 +358,7 @@ Shader "Custom/GrassLod1"
 
                 half3 normal = isFace? normalize(i.normal): normalize(-i.normal);
 
- 
+
                 Light light = GetMainLight();
                 // half shadowAmount = MainLightRealtimeShadow(shadowCoord);
                 // half3 lambert = LightingLambert(light.color, light.direction, normal);

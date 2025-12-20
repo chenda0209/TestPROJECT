@@ -5,30 +5,31 @@ using UnityEngine;
 
 public class RenderMeshIndirectGrassSpawner : MonoBehaviour
 {
-    public GameObject grassPrefabLod0, grassPrefabLod1;
-    private Mesh grassMeshLod0, grassMeshLod1;
-    private RenderParams renderParamsLod0, renderParamsLod1;
-    private Material grassMaterialLod0, grassMaterialLod1;
+    public GameObject Lod0grassPrefab, Lod1grassPrefab, Lod2grassPrefab;
+    private Mesh lod0grassMesh, lod1grassMesh, Lod2grassMesh;
+    private RenderParams lod0renderParams, lod1renderParams, lod2renderParams;
+    private Material lod0grassMaterial, lod1grassMaterial, lod2grassMaterial;
     private Camera cam;
 
     public float boundWidth, boundHeight;
-
+    public Vector4 threshold;
     public ComputeShader cullComputerShader;// 主要GPU着色器，用于剔除摄像机和Hi-z剔除
     private RenderTexture resultTexture;
     private ComputeBuffer computeBuffer;// RW读写着色器，基本ComputeBuffer用来传输所有物体的原始数据和包围盒
-    private ComputeBuffer appendBuffer; // Append Buffer
-    private ComputeBuffer lod0Buffer, lod1Buffer; // Append Buffer
+    // private ComputeBuffer appendBuffer; // Append Buffer
+    private ComputeBuffer lod0Buffer, lod1Buffer, lod2Buffer; // Append Buffer
     // ArgumentsBuffer 的数据结构（C# 数组）
     private uint[] args = new uint[5] { 0, 0, 0, 0, 0 };
-    private GraphicsBuffer argsBufferLod0, argsBufferLod1;// 用来RenderMeshIndirect的接口特殊ComputeBuffer，他是这么说的，我也没搞明白具体差别，反正必须要使用这个类别
+    private GraphicsBuffer lod0argsBuffer, lod1argsBuffer, lod2argsBuffer;// 用来RenderMeshIndirect的接口特殊ComputeBuffer，他是这么说的，我也没搞明白具体差别，反正必须要使用这个类别
     private int kernelHandle;// 获取 Compute Shader 中特定函数的唯一标识符（ID或句柄），以便 CPU 能够准确地告诉 GPU “请运行这个函数”。
     private uint threadGroupSizeX;
     private uint threadGroupSizeY;
     public int instanceCount = 100000;
-    private static readonly int OriginalGrassDataID = Shader.PropertyToID("_GrassDataBuffer"); //传入shader的buffer名称
-    private static readonly int VisibleGrassDataID = Shader.PropertyToID("_VisibleIndexBuffer");
-    private static readonly int Lod0BufferID = Shader.PropertyToID("_Lod0Buffer");
-    private static readonly int Lod1BufferID = Shader.PropertyToID("_Lod1Buffer");
+    private static readonly int GrassDataBufferID = Shader.PropertyToID("_GrassDataBuffer"); //传入shader的buffer名称
+    // private static readonly int VisibleGrassDataID = Shader.PropertyToID("_VisibleIndexBuffer");
+    private static readonly int lod0BufferID = Shader.PropertyToID("_lod0Buffer");
+    private static readonly int lod1BufferID = Shader.PropertyToID("_lod1Buffer");
+    private static readonly int lod2BufferID = Shader.PropertyToID("_lod2Buffer");
     // 全局存储视锥体平面的 Vector4 数组
     private Vector4[] frustumPlanesArray = new Vector4[6];
     private static readonly int FrustumPlanesID = Shader.PropertyToID("_FrustumPlanes"); // 缓存 Shader ID
@@ -60,32 +61,41 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         if (cam == null) cam = Camera.main;
         if (player == null) player = GameObject.FindGameObjectWithTag("Player");
         // 收集 Mesh 和 Material
-        grassMeshLod0 = grassPrefabLod0.GetComponent<MeshFilter>().sharedMesh;
-        grassMeshLod1 = grassPrefabLod1.GetComponent<MeshFilter>().sharedMesh;
-        grassMaterialLod0 = grassPrefabLod0.GetComponent<MeshRenderer>().sharedMaterial;
-        grassMaterialLod1 = grassPrefabLod1.GetComponent<MeshRenderer>().sharedMaterial;
+        lod0grassMesh = Lod0grassPrefab.GetComponent<MeshFilter>().sharedMesh;
+        lod1grassMesh = Lod1grassPrefab.GetComponent<MeshFilter>().sharedMesh;
+        Lod2grassMesh = Lod2grassPrefab.GetComponent<MeshFilter>().sharedMesh;
+        lod0grassMaterial = Lod0grassPrefab.GetComponent<MeshRenderer>().sharedMaterial;
+        lod1grassMaterial = Lod1grassPrefab.GetComponent<MeshRenderer>().sharedMaterial;
+        lod2grassMaterial = Lod2grassPrefab.GetComponent<MeshRenderer>().sharedMaterial;
         // 3. 检查 Instancing 启用状态
-        if (!grassMaterialLod0.enableInstancing)
+        if (!lod0grassMaterial.enableInstancing)
         {
             // 启用 Instancing（如果材质的Shader支持且 Inspector 中未勾选）
-            grassMaterialLod0.enableInstancing = true;
+            lod0grassMaterial.enableInstancing = true;
             Debug.LogWarning("GPU Instancing was automatically enabled on the material.");
         }
-        if (!grassMaterialLod1.enableInstancing)
+        lod0renderParams = new(lod0grassMaterial);
+        if (!lod1grassMaterial.enableInstancing)
         {
             // 启用 Instancing（如果材质的Shader支持且 Inspector 中未勾选）
-            grassMaterialLod1.enableInstancing = true;
+            lod1grassMaterial.enableInstancing = true;
             Debug.LogWarning("GPU Instancing was automatically enabled on the material.");
         }
-
-        renderParamsLod0 = new(grassMaterialLod0);
-        renderParamsLod1 = new(grassMaterialLod1);
+        lod1renderParams = new(lod1grassMaterial);
+        if (!lod2grassMaterial.enableInstancing)
+        {
+            // 启用 Instancing（如果材质的Shader支持且 Inspector 中未勾选）
+            lod2grassMaterial.enableInstancing = true;
+            Debug.LogWarning("GPU Instancing was automatically enabled on the material.");
+        }
+        lod2renderParams = new(lod2grassMaterial);
         // 设置camera可以设定是否只在play视图里显示
         // renderParams.camera = cam;
         Bounds playerBounds = new(Vector3.zero, new Vector3(boundWidth, 1f, boundHeight));
         // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
-        renderParamsLod0.worldBounds = playerBounds;
-        renderParamsLod1.worldBounds = playerBounds;
+        lod0renderParams.worldBounds = playerBounds;
+        lod1renderParams.worldBounds = playerBounds;
+        lod2renderParams.worldBounds = playerBounds;
         // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
 
         // 获取 Compute Shader 中特定函数的唯一标识符（ID或句柄），以便 CPU 能够准确地告诉 GPU “请运行这个函数”。
@@ -108,20 +118,22 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
 
         // 可见物体的buffer,只读模式，所以不需要去SetData
         int visibleIndexStride = sizeof(uint);
-        appendBuffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);//只用setbuffer，不需要setdata
+        // appendBuffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);//只用setbuffer，不需要setdata
         lod0Buffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);//只用setbuffer，不需要setdata
         lod1Buffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);//只用setbuffer，不需要setdata
+        lod2Buffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);//只用setbuffer，不需要setdata
 
-        args[0] = grassMeshLod0.GetIndexCount(0); // Index Count (不变)
+        args[0] = lod0grassMesh.GetIndexCount(0); // Index Count (不变)
         args[1] = 0; // Instance Count (必须为0，由CopyCount覆盖)
         args[2] = 0; // Start Index（通常是0）
-        args[3] = grassMeshLod0.GetBaseVertex(0); // Base Vertex（通常是0）
+        args[3] = lod0grassMesh.GetBaseVertex(0); // Base Vertex（通常是0）
         args[4] = 0; // Start Instance
-        argsBufferLod0 = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 5, sizeof(uint));
-        argsBufferLod0.SetData(args);
-        argsBufferLod1 = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 5, sizeof(uint));
-        argsBufferLod1.SetData(args);
-
+        lod0argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 5, sizeof(uint));
+        lod0argsBuffer.SetData(args);
+        lod1argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 5, sizeof(uint));
+        lod1argsBuffer.SetData(args);
+        lod2argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 5, sizeof(uint));
+        lod2argsBuffer.SetData(args);
 
         // 如果要传入RT当数据，就这么声明
         if (resultTexture == null)
@@ -162,22 +174,24 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         }
 
         cullComputerShader.SetInt("_InstanceCount", instanceCount);//指定绘制数量
-        cullComputerShader.SetFloat("_NearThreshold", 20);// 远近分界线LOD
+        cullComputerShader.SetVector("_Threshold", threshold);// 远近分界线LOD
 
         // 传输物体数据！CPU只需要一次调用。
         computeBuffer.SetData(initialData);
         // 传输数据后设置computershader，并标记BUFFER的数据名字进行计算。
-        cullComputerShader.SetBuffer(kernelHandle, OriginalGrassDataID, computeBuffer);
-        cullComputerShader.SetBuffer(kernelHandle, VisibleGrassDataID, appendBuffer);
-        cullComputerShader.SetBuffer(kernelHandle, Lod0BufferID, lod0Buffer);
-        cullComputerShader.SetBuffer(kernelHandle, Lod1BufferID, lod1Buffer);
+        cullComputerShader.SetBuffer(kernelHandle, GrassDataBufferID, computeBuffer);
+        // cullComputerShader.SetBuffer(kernelHandle, VisibleGrassDataID, appendBuffer);
+        cullComputerShader.SetBuffer(kernelHandle, lod0BufferID, lod0Buffer);
+        cullComputerShader.SetBuffer(kernelHandle, lod1BufferID, lod1Buffer);
+        cullComputerShader.SetBuffer(kernelHandle, lod2BufferID, lod2Buffer);
+        // 设置材质的读写buffer
+        lod0grassMaterial.SetBuffer(GrassDataBufferID, computeBuffer);
+        lod0grassMaterial.SetBuffer(lod0BufferID, lod0Buffer);
+        lod1grassMaterial.SetBuffer(GrassDataBufferID, computeBuffer);
+        lod1grassMaterial.SetBuffer(lod1BufferID, lod1Buffer);
+        lod2grassMaterial.SetBuffer(GrassDataBufferID, computeBuffer);
+        lod2grassMaterial.SetBuffer(lod2BufferID, lod2Buffer);
 
-        // 设置材质的读写buffer
-        grassMaterialLod0.SetBuffer(OriginalGrassDataID, computeBuffer);
-        grassMaterialLod0.SetBuffer(Lod0BufferID, lod0Buffer);
-        // 设置材质的读写buffer
-        grassMaterialLod1.SetBuffer(OriginalGrassDataID, computeBuffer);
-        grassMaterialLod1.SetBuffer(Lod1BufferID, lod1Buffer);
     }
 
 
@@ -215,10 +229,10 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
 
     void LateUpdate()
     {
-        appendBuffer.SetCounterValue(0);//清除计数
+        // appendBuffer.SetCounterValue(0);//清除计数
         lod0Buffer.SetCounterValue(0);//清除计数
         lod1Buffer.SetCounterValue(0);//清除计数
-
+        lod2Buffer.SetCounterValue(0);//清除计数
         PrepareAndSetFrustumPlanes();
         // 2. 【修正 4】调度 Compute Shader (使用一维调度)
         uint totalGroupSize = threadGroupSizeX * threadGroupSizeY;
@@ -232,18 +246,26 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         // // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
         // renderParams.worldBounds = playerBounds;
         // // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
-        GraphicsBuffer.CopyCount(lod0Buffer, argsBufferLod0, sizeof(uint));
-        Graphics.RenderMeshIndirect(renderParamsLod0, grassMeshLod0, argsBufferLod0);
 
-        GraphicsBuffer.CopyCount(lod1Buffer, argsBufferLod1, sizeof(uint));
-        Graphics.RenderMeshIndirect(renderParamsLod1, grassMeshLod1, argsBufferLod1);
+        GraphicsBuffer.CopyCount(lod0Buffer, lod0argsBuffer, sizeof(uint));
+        Graphics.RenderMeshIndirect(lod0renderParams, lod0grassMesh, lod0argsBuffer);
+
+        GraphicsBuffer.CopyCount(lod1Buffer, lod1argsBuffer, sizeof(uint));
+        Graphics.RenderMeshIndirect(lod1renderParams, lod1grassMesh, lod1argsBuffer);
+
+        GraphicsBuffer.CopyCount(lod2Buffer, lod2argsBuffer, sizeof(uint));
+        Graphics.RenderMeshIndirect(lod2renderParams, Lod2grassMesh, lod2argsBuffer);
     }
 
     void OnDisable()
     {
         computeBuffer.Dispose();
-        appendBuffer.Dispose();
-        argsBufferLod0.Dispose();
-        argsBufferLod1.Dispose();
+        // appendBuffer.Dispose();
+        lod0Buffer.Dispose();
+        lod1Buffer.Dispose();
+        lod2Buffer.Dispose();
+        lod0argsBuffer.Dispose();
+        lod1argsBuffer.Dispose();
+        lod2argsBuffer.Dispose();
     }
 }

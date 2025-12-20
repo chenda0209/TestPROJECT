@@ -1,4 +1,4 @@
-Shader "Custom/GrassLod1"
+Shader "Custom/GrassLod0"
 {
     Properties
     {
@@ -70,7 +70,7 @@ Shader "Custom/GrassLod1"
             };
             StructuredBuffer<GrassData> _GrassDataBuffer;
             // AppendStructuredBuffer 用于接收剔除后的结果
-            StructuredBuffer<uint> _lod1Buffer;
+            StructuredBuffer<uint> _lod0Buffer;
 
             struct appdata
             {
@@ -293,7 +293,7 @@ Shader "Custom/GrassLod1"
                 v2f o;
                 // --- 1. 获取数据 ---
                 uint instanceID = v.instanceID;
-                uint originalIndex = _lod1Buffer[instanceID]; 
+                uint originalIndex = _lod0Buffer[instanceID]; 
                 GrassData instanceData = _GrassDataBuffer[originalIndex];
                 
                 // 假设 worldMatrix 已经包含了位置、随机旋转和缩放
@@ -358,15 +358,15 @@ Shader "Custom/GrassLod1"
 
                 half3 normal = isFace? normalize(i.normal): normalize(-i.normal);
 
- 
-                Light light = GetMainLight();
+                half4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
+                Light light = GetMainLight(shadowCoord);
                 // half shadowAmount = MainLightRealtimeShadow(shadowCoord);
                 // half3 lambert = LightingLambert(light.color, light.direction, normal);
                 
                 half3 viewDir = GetWorldSpaceNormalizeViewDir(i.positionWS);
                 half3 specular = DirectBRDFSpecular(brdfData, normal, light.direction, viewDir);
                 // half3 brdf = DirectBRDF(brdfData, normal, light.direction, viewDir) * lambert * light.shadowAttenuation ;//没有使用兰伯特，背光效果太差了
-                half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * light.color ;
+                half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * light.color * light.shadowAttenuation ;
                 float3 GI = SampleSH(normal);
 
                 return half4(brdf * i.positionWS.y + GI * col * _Color, 1);

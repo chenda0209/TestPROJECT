@@ -15,12 +15,12 @@ struct GrassData
 // 物体原始数据，StructuredBuffer只读，RWStructuredBuffer为可读写，AppendStructuredBuffer只写
 StructuredBuffer<GrassData> _GrassDataBuffer;
 // AppendStructuredBuffer 用于接收剔除后的结果
-AppendStructuredBuffer<uint> _VisibleIndexBuffer;
-AppendStructuredBuffer<uint> _Lod0Buffer;
-AppendStructuredBuffer<uint> _Lod1Buffer;
+AppendStructuredBuffer<uint> _lod0Buffer;
+AppendStructuredBuffer<uint> _lod1Buffer;
+AppendStructuredBuffer<uint> _lod2Buffer;
 
 uint _InstanceCount;
-float _NearThreshold;
+float4 _Threshold;
 
 float4 _FrustumPlanes[6];
 float4 _CameraPos;
@@ -73,15 +73,19 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         float3 diff = center.xyz - _CameraPos.xyz;
         float distSq = dot(diff, diff); // 距离的平方，省去了开方运算
 
-        if (distSq < _NearThreshold * _NearThreshold)
+        if (distSq < _Threshold.x * _Threshold.x)
         { 
             // 近处物体
-            _Lod0Buffer.Append(index);
+            _lod0Buffer.Append(index);
         }
-        else
+        else if(distSq < _Threshold.y * _Threshold.y )
         {
             // 远处物体
-            _Lod1Buffer.Append(index);
+            _lod1Buffer.Append(index);
+        }
+        else if (distSq < _Threshold.z * _Threshold.z)
+        {
+            _lod2Buffer.Append(index);
         }
     }
 

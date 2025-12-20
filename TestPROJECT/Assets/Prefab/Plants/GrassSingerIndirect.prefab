@@ -87,11 +87,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 2100000, guid: f1d3ff4bb9be2384fbb10960e5089bdb, type: 2}
+      objectReference: {fileID: 2100000, guid: b7c0c2a79fd6204479177c442a6b08c3, type: 2}
     - target: {fileID: 919132149155446097, guid: 547cb0e8faf2b664d98bbee65eb832b5,
         type: 3}
       propertyPath: m_Name
-      value: GrassSinger00
+      value: GrassSingerIndirect
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
