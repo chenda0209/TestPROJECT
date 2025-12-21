@@ -1,110 +1,93 @@
 using UnityEngine;
 using TMPro;
-using UnityEngine.Profiling; // 如果使用 TextMeshPro 控件，需要这个命名空间
+using UnityEngine.Profiling;
+using Unity.Profiling; // 用于 ProfilerRecorder
+using System.Collections.Generic;
 
 public class FPSDisplay : MonoBehaviour
 {
     [SerializeField] private TMP_Text fpsText, memoryText, cpuText, gpuText, dispPlayText;
-    // FPS 更新的频率（例如每 0.5 秒更新一次，避免每帧抖动）
     [SerializeField] private float refreshRate = 0.5f;
     private float timer;
 
-
-    // 用于真机获取
-    private Recorder drRecorder;
-    private Recorder vertRecorder;
+    // --- 核心修复：ProfilerRecorder 需要配合 ProfilerCategory 使用 ---
+    private ProfilerRecorder drRecorder;
+    private ProfilerRecorder vertRecorder;
 
     void Awake()
     {
-        // 1. **强制关闭 V-Sync**：这是最常见的阻碍
-        // 0 = 关闭 V-Sync，允许帧率超过屏幕刷新率（或达到最大可能）
+        // 1. 关闭 V-Sync
         QualitySettings.vSyncCount = 0;
-
-        // 2. **设置目标帧率为最大**
-        // -1 = 让游戏以最快速度渲染
-        // 或者强制设置一个高值，例如 120
-        Application.targetFrameRate = 120; // 尝试设置一个明确的高值
-
+        // 2. 设置目标帧率
+        Application.targetFrameRate = 120; 
         Debug.Log("帧率设置尝试：V-Sync = 0, TargetFPS = 120");
     }
 
-    void Start()
+    // --- 核心修复：ProfilerRecorder 的启动和关闭 ---
+    void OnEnable()
     {
-        drRecorder = Recorder.Get("Render.DrawCalls");
-        vertRecorder = Recorder.Get("Render.Vertices");
+        // 在真机上，通过这种方式手动开启渲染计数器的监听
+        drRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count");
+        vertRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Vertices Count");
+    }
+
+    void OnDisable()
+    {
+        // 必须销毁，否则打包后会造成内存泄漏
+        drRecorder.Dispose();
+        vertRecorder.Dispose();
     }
 
     private void Update()
     {
-        // 累加时间
         timer += Time.deltaTime;
-        // 达到刷新间隔后更新 FPS
         if (timer >= refreshRate)
         {
-            // FPS = 1 / 帧耗时
             float fps = 1f / Time.unscaledDeltaTime;
-            // 格式化输出到文本组件
-            // Mathf.RoundToInt 将浮点数转换为整数
             fpsText.text = $"FPS: {Mathf.RoundToInt(fps)}";
-            // 重置计时器
             timer = 0f;
 
             DisplayMemory();
 
-
-
-            // 捕获最近一帧的时间戳
+            // CPU & GPU 时间统计
             FrameTimingManager.CaptureFrameTimings();
-
-            // 获取第一条记录
             FrameTiming[] timings = new FrameTiming[1];
             uint count = FrameTimingManager.GetLatestTimings(1, timings);
 
             if (count > 0)
             {
-                double cpuTime = timings[0].cpuFrameTime;
-                double gpuTime = timings[0].gpuFrameTime; // 这里的单位直接就是 ms
-                cpuText.text = $"CPU: {cpuTime:F2}ms";
-                gpuText.text = $"GPU: {gpuTime:F2}ms";
+                cpuText.text = $"CPU: {timings[0].cpuFrameTime:F2}ms";
+                gpuText.text = $"GPU: {timings[0].gpuFrameTime:F2}ms";
             }
 
-
             int dc = 0;
-            int verts = 0;
-// #if UNITY_EDITOR
-//             // 编辑器下最准的统计
-//             dc = UnityEditor.UnityStats.drawCalls;
-//             verts = UnityEditor.UnityStats.vertices;
-// #else
-//             // 真机下尝试获取
-//             if (drRecorder.isValid) dc = (int)drRecorder.systemMemorySize;
-//             if (vertRecorder.isValid) verts = (int)vertRecorder.systemMemorySize;
-// #endif
-            dispPlayText.text = $"DrawCalls: {dc}\n" + $"Vertex: {FormatNumber(verts)}";
+            long verts = 0; // 顶点数建议用 long，防止溢出
+
+#if UNITY_EDITOR
+            // 编辑器下直接拿 UnityStats
+            dc = UnityEditor.UnityStats.drawCalls;
+            verts = UnityEditor.UnityStats.vertices;
+#else
+            // 真机下：使用 .LastValue 拿到刚才记录的值
+            if (drRecorder.IsRunning) dc = (int)drRecorder.LastValue;
+            if (vertRecorder.IsRunning) verts = vertRecorder.LastValue;
+#endif
+            dispPlayText.text = $"DrawCalls: {dc}\n" + $"Vertex: {FormatNumber((int)verts)}";
         }
     }
 
-
     void DisplayMemory()
     {
-        // 1. 系统总物理内存 (MB)
         int totalSystemMemory = SystemInfo.systemMemorySize;
-
-        // 2. Unity 当前已分配的内存 (转换为 MB)
         long allocatedMemory = Profiler.GetTotalAllocatedMemoryLong() / 1048576;
-
-        // 3. Unity 预留的内存总额 (已分配 + 未分配但占用的，转换为 MB)
         long reservedMemory = Profiler.GetTotalReservedMemoryLong() / 1048576;
-
-        // 4. Mono 堆内存 (托管对象占用)
         long monoMemory = Profiler.GetMonoUsedSizeLong() / 1048576;
 
         memoryText.text = $"SystemMemory: {totalSystemMemory} MB\n" +
-                          $"UnityReservedMemory: {reservedMemory} MB\n" +
-                          $"UnityAllocatedMemory: {allocatedMemory} MB\n" +
-                          $"monoMemory: {monoMemory} MB";
+                          $"UnityReserved: {reservedMemory} MB\n" +
+                          $"UnityAllocated: {allocatedMemory} MB\n" +
+                          $"Mono: {monoMemory} MB";
     }
-
 
     string FormatNumber(int num)
     {
@@ -112,5 +95,4 @@ public class FPSDisplay : MonoBehaviour
         if (num >= 1000) return (num / 1000f).ToString("F1") + "K";
         return num.ToString();
     }
-
 }
