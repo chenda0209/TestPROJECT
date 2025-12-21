@@ -29,7 +29,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _NoiseTex:
         m_Texture: {fileID: 2800000, guid: 0ed26f8b0803d16419f588eac4bf868d, type: 3}
-        m_Scale: {x: 7.14, y: 1}
+        m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
