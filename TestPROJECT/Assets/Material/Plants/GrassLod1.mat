@@ -35,10 +35,10 @@ Material:
     m_Floats:
     - _AlphaClip: 0.1
     - _Smoothness: 0.4
-    - _WaveSpeed_X: 0.2
-    - _WaveSpeed_Y: 0.2
-    - _WaveStrength: 6
-    - _WaveTiling: 0.02
+    - _WaveSpeed_X: 0.1
+    - _WaveSpeed_Y: 0
+    - _WaveStrength: 10
+    - _WaveTiling: 0.01
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

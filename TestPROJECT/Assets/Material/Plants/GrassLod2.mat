@@ -29,16 +29,16 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _NoiseTex:
         m_Texture: {fileID: 2800000, guid: 0ed26f8b0803d16419f588eac4bf868d, type: 3}
-        m_Scale: {x: 1, y: 1}
+        m_Scale: {x: 7.14, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - _AlphaClip: 0.1
     - _Smoothness: 0.4
-    - _WaveSpeed_X: 0.2
-    - _WaveSpeed_Y: 0.2
-    - _WaveStrength: 6
-    - _WaveTiling: 0.02
+    - _WaveSpeed_X: 0.1
+    - _WaveSpeed_Y: 0
+    - _WaveStrength: 10
+    - _WaveTiling: 0.01
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

@@ -80,7 +80,7 @@ public class FPSDisplay : MonoBehaviour
 //             if (drRecorder.isValid) dc = (int)drRecorder.systemMemorySize;
 //             if (vertRecorder.isValid) verts = (int)vertRecorder.systemMemorySize;
 // #endif
-            dispPlayText.text = $"DrawCalls: {dc}\n" + $"顶点: {FormatNumber(verts)}";
+            dispPlayText.text = $"DrawCalls: {dc}\n" + $"Vertex: {FormatNumber(verts)}";
         }
     }
 
@@ -99,10 +99,10 @@ public class FPSDisplay : MonoBehaviour
         // 4. Mono 堆内存 (托管对象占用)
         long monoMemory = Profiler.GetMonoUsedSizeLong() / 1048576;
 
-        memoryText.text = $"系统总内存: {totalSystemMemory} MB\n" +
-                          $"Unity 预留: {reservedMemory} MB\n" +
-                          $"Unity 已用: {allocatedMemory} MB\n" +
-                          $"堆内存 (Mono): {monoMemory} MB";
+        memoryText.text = $"SystemMemory: {totalSystemMemory} MB\n" +
+                          $"UnityReservedMemory: {reservedMemory} MB\n" +
+                          $"UnityAllocatedMemory: {allocatedMemory} MB\n" +
+                          $"monoMemory: {monoMemory} MB";
     }
 
 
