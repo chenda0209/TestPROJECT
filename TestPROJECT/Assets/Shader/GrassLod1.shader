@@ -62,11 +62,9 @@ Shader "Custom/GrassLod1"
             sampler2D _NoiseTex;
             struct GrassData
             {
-                float4 worldPos;
-                float4 r;
-                float4x4 worldMatrix;
-                float4x4 translateMatrix;
-                float4x4 rotateMatrix;
+                float3 worldPos;    // 12 bytes
+                float rotation;// 4 bytes (绕 Y 轴转一下就行)
+                float scale;
             };
             StructuredBuffer<GrassData> _GrassDataBuffer;
             // AppendStructuredBuffer 用于接收剔除后的结果
@@ -287,7 +285,18 @@ Shader "Custom/GrassLod1"
             //     return o;
             // }
 
+            float3 RotateY(float3 pos, float radian)
+            {
+                float s, c;
+                sincos(radian, s, c); // 同时计算 sin 和 cos，性能比分开算快
 
+                float3 rotatedPos = pos;
+                // 数学原理：2D 旋转矩阵在 3D 空间的应用（Y轴坐标不变）
+                rotatedPos.x = pos.x * c - pos.z * s;
+                rotatedPos.z = pos.x * s + pos.z * c;
+                
+                return rotatedPos;
+            }
             v2f vert (appdata v)
             {
                 v2f o;
@@ -295,17 +304,16 @@ Shader "Custom/GrassLod1"
                 uint instanceID = v.instanceID;
                 uint originalIndex = _lod1Buffer[instanceID]; 
                 GrassData instanceData = _GrassDataBuffer[originalIndex];
-                
-                // 假设 worldMatrix 已经包含了位置、随机旋转和缩放
-                float4x4 worldMatrix = instanceData.worldMatrix;
 
-                // --- 2. 计算风力旋转 (在应用随机旋转之前或之后要统一) ---
-                // 使用 worldPos.xz 采样噪声是正确的，这保证了风场是连续的
-                float3 baseWorldPos = float3(worldMatrix[0][3], worldMatrix[1][3], worldMatrix[2][3]);
-                
+                // 2. 先缩放
+                float3 localPos = v.vertex.xyz * instanceData.scale;
+
+                // 3. 再旋转（传入弧度制角度）
+                localPos = RotateY(localPos, instanceData.rotation);
+
                 float2 wave = float2(_WaveSpeed_X, _WaveSpeed_Y);
                 // 采样噪声，注意：这里建议用 baseWorldPos，防止顶点位移导致采样坐标跳变
-                float noise = tex2Dlod(_NoiseTex, float4(baseWorldPos.xz * _WaveTiling + wave * _Time.y, 0, 0)).r;
+                float noise = tex2Dlod(_NoiseTex, float4(instanceData.worldPos.xz * _WaveTiling + wave * _Time.y, 0, 0)).r;
 
                 // 只有上半部分倒伏：用 v.vertex.y 限制
                 float stretch = _WaveStrength * noise * saturate(v.vertex.y);
@@ -320,26 +328,21 @@ Shader "Custom/GrassLod1"
                 float3x3 rotX = float3x3(1, 0, 0, 0, cx, -sx, 0, sx, cx);
                 float3x3 rotZ = float3x3(cz, -sz, 0, sz, cz, 0, 0, 0, 1);
                 float3x3 windRot = mul(rotZ, rotX);
-
-                // --- 3. 变换顺序调整 ---
-                // 第一步：应用草自身的随机旋转 (rotateMatrix) 和 模型顶点
-                float3 localPos = mul((float3x3)instanceData.rotateMatrix, v.vertex.xyz);
                 
                 // 第二步：应用风力倒伏 (windRot)
                 // 这样风吹的方向永远是基于“风场方向”，不受草自身转角影响
                 float3 windAffectedPos = mul(windRot, localPos);
 
-                // 第三步：转到世界空间 (应用位置和缩放)
-                // 注意：这里我们只用 worldMatrix 的平移和缩放部分，或者直接加上世界位移
-                float3 positionWS = mul(worldMatrix, float4(windAffectedPos, 1.0)).xyz;
+                // 4. 最后加上世界偏移
+                float3 worldPos = windAffectedPos + instanceData.worldPos;
 
                 // --- 4. 法线处理 ---
-                float3 normalRS = mul((float3x3)instanceData.rotateMatrix, v.normal);
+                float3 normalRS = normalize(RotateY(v.normal, instanceData.rotation));
                 float3 normalWS = normalize(mul(windRot, normalRS));
 
                 // --- 赋值 ---
-                o.positionWS = positionWS;
-                o.vertex = TransformWorldToHClip(positionWS);
+                o.positionWS = worldPos;
+                o.vertex = TransformWorldToHClip(worldPos);
                 o.normal = normalWS;
                 o.uv = v.uv;
                 o.vcolor = v.vcolor;

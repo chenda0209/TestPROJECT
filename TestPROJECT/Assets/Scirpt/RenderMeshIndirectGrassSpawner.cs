@@ -38,11 +38,9 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
     [StructLayout(LayoutKind.Sequential)]
     public struct GrassData
     {
-        public Vector4 worldPos;
-        public Vector4 r;
-        public Matrix4x4 worldMatrix;
-        public Matrix4x4 translateMatrix;
-        public Matrix4x4 rotateMatrix;
+        public Vector3 worldPos;    // 12 bytes
+        public float rotation;// 4 bytes (绕 Y 轴转一下就行)
+        public float scale;
     }
     // 确保内存布局是连续的、顺序的
     [StructLayout(LayoutKind.Sequential)]
@@ -99,7 +97,7 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         // !!!!!!!!!!!!!!!!!!!坑，不设置AABB，他就会始终把世界原点当剔除，这个相当于一个初级剔除，然后才是摄像机剔除。
 
         // 获取 Compute Shader 中特定函数的唯一标识符（ID或句柄），以便 CPU 能够准确地告诉 GPU “请运行这个函数”。
-        kernelHandle = cullComputerShader.FindKernel("CSMain");
+        kernelHandle = cullComputerShader.FindKernel("FrustumCulling");
         // 获取线程组尺寸（仅执行这一次）
         cullComputerShader.GetKernelThreadGroupSizes(kernelHandle, out threadGroupSizeX, out threadGroupSizeY, out _);
 
@@ -165,11 +163,9 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
             // 填充 GrassData 结构体
             initialData[i] = new GrassData
             {
-                worldPos = new Vector4(randomPos.x, randomPos.y, randomPos.z, 1f),
-                r = new Vector4(0.4f, 0f, 0f, 0f), // 将半径存储在 Vector4.x
-                worldMatrix = matrix,
-                translateMatrix = translate,
-                rotateMatrix = rotate,
+                worldPos = randomPos,
+                rotation = Random.Range(0f, 360f),
+                scale = Random.Range(0.2f, 1.0f)
             };
         }
 
@@ -236,8 +232,8 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         PrepareAndSetFrustumPlanes();
         // 2. 【修正 4】调度 Compute Shader (使用一维调度)
         uint totalGroupSize = threadGroupSizeX * threadGroupSizeY;
-        int threadGroupsX = Mathf.CeilToInt((float)instanceCount / totalGroupSize);
-        cullComputerShader.Dispatch(kernelHandle, threadGroupsX, 1, 1); // Z 必须是 1
+        int threadGroups = Mathf.CeilToInt((float)instanceCount / totalGroupSize);
+        cullComputerShader.Dispatch(kernelHandle, threadGroups, 1, 1); // Z 必须是 1
         // int threadGroupsX = Mathf.CeilToInt((float)instanceCount / threadGroupSizeX);
         // int threadGroupsY = Mathf.CeilToInt((float)instanceCount / threadGroupSizeY);
         // cullComputerShader.Dispatch(kernelHandle, threadGroupsX, threadGroupsY, 1); // Z 必须是 1
