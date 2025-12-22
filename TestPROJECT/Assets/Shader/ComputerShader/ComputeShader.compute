@@ -40,7 +40,7 @@ void FrustumCulling (uint3 id : SV_DispatchThreadID)
 
     // 剔除所需数据
     float4 center = float4(grass.worldPos,1); // 包围球中心 (x, y, z)
-    float radius = 0.5f * grass.scale;       // 包围球半径 (r)
+    float radius = 1;       // 包围球半径 (r)
     
     bool isVisible = true;
     

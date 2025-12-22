@@ -68,7 +68,7 @@ Shader "Custom/GrassLod2"
             };
             StructuredBuffer<GrassData> _GrassDataBuffer;
             // AppendStructuredBuffer 用于接收剔除后的结果
-            StructuredBuffer<uint> _lod2Buffer;
+            StructuredBuffer<uint> _Lod2Buffer;
 
             struct appdata
             {
@@ -303,7 +303,7 @@ Shader "Custom/GrassLod2"
                 v2f o;
                 // --- 1. 获取数据 ---
                 uint instanceID = v.instanceID;
-                uint originalIndex = _lod2Buffer[instanceID]; 
+                uint originalIndex = _Lod2Buffer[instanceID]; 
                 GrassData instanceData = _GrassDataBuffer[originalIndex];
 
                 // 2. 先缩放
@@ -357,7 +357,7 @@ Shader "Custom/GrassLod2"
                 clip(col.a - _AlphaClip);
                 half alpha = 1;
                 BRDFData brdfData;
-                InitializeBRDFData(col * _Color.rgb, 0, half3(1, 1, 1), _Smoothness, alpha, brdfData);
+                InitializeBRDFData(col.rgb * _Color.rgb, 0, half3(1, 1, 1), _Smoothness, alpha, brdfData);
 
                 half3 normal = isFace? normalize(i.normal): normalize(-i.normal);
 
@@ -372,7 +372,7 @@ Shader "Custom/GrassLod2"
                 half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * light.color ;
                 float3 GI = SampleSH(normal);
 
-                return half4(brdf * i.positionWS.y + GI * col * _Color, 1);
+                return half4(brdf * i.positionWS.y + GI * col.rgb * _Color.rgb, 1);
             }
             ENDHLSL
         }

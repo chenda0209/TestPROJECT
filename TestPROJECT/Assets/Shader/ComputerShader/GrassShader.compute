@@ -1,12 +1,14 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel GenerateGrass
 #pragma kernel FrustumCulling
-
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
 uint _InstanceCount; // 一起实例化的总数量
 
 Texture2D<float4> _SplatMap;
-SamplerState sampler_SplatMap; // 只要 C# 传了图，Unity 会自动处理采样器
+SamplerState LinearClampSampler;// 只要 C# 传了图，Unity 会自动处理采样器
+Texture2D<float4> _HeightMap;
+float _TerrainHeight;
 
 struct GrassData
 {
@@ -17,9 +19,9 @@ struct GrassData
 // 物体原始数据，StructuredBuffer只读，RWStructuredBuffer为可读写，AppendStructuredBuffer只写
 RWStructuredBuffer<GrassData> _GrassDataBuffer;
 // AppendStructuredBuffer 用于接收剔除后的结果
-AppendStructuredBuffer<uint> _lod0Buffer;
-AppendStructuredBuffer<uint> _lod1Buffer;
-AppendStructuredBuffer<uint> _lod2Buffer;
+AppendStructuredBuffer<uint> _Lod0Buffer;
+AppendStructuredBuffer<uint> _Lod1Buffer;
+AppendStructuredBuffer<uint> _Lod2Buffer;
 
 float4 _Threshold; // lod远近设置
 float4 _FrustumPlanes[6];
@@ -28,7 +30,7 @@ float4 _CameraPos;
 
 uint _TargetSlotID;     // 货架号
 float3 _ChunkBasePos;   // 这一块的左下角世界坐标 (如 32, 0, 64)
-
+float3 _TerrainBasePos;
 // 一个经典的基于坐标采样的随机函数
 float GetRandom(float2 st)
 {
@@ -45,23 +47,30 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
     // 2. 计算世界坐标 (id.x 是 0~127，间距 0.25)
     float2 localOffset = id.xy * 0.25; 
     float3 worldPos = _ChunkBasePos + float3(localOffset.x, 0, localOffset.y);
-
-    // 3. 计算 UV (直接用世界坐标 / 地形大小)
-    // 假设地形是 1024x1024，坐标在 0~1024 之间
-    float2 worldUV = worldPos.xz / 1024.0;
-
-    // 4. 采样与抖动 (逻辑不变)
-    float weight = _SplatMap.SampleLevel(sampler_SplatMap, worldUV, 0).r;
     
-    // 抖动：最大偏移 0.25 (即一个格子的宽度)
+    // 假设地形大小是 1024，请确保这里的 1024.0 和你实际地形尺寸一致
+    float2 localPos = worldPos.xz - _TerrainBasePos.xz;
+    float2 worldUV = localPos / 1024.0; 
+
+    // 2. 采样高度图 (重点)
+    // 即使定义为 float4，高度信息也依然在 r 通道
+    float height = UnpackHeightmap(_HeightMap.SampleLevel(LinearClampSampler, worldUV, 0));
+    
+    // 计算实际世界高度：地形物体自身的Y轴位置 + (归一化高度 * 地形设定的最大高度)
+    float worldY = _TerrainBasePos.y + (height * _TerrainHeight)*2;
+
+    // 3. 采样权重图 (你之前的逻辑)
+    float weight = _SplatMap.SampleLevel(LinearClampSampler, worldUV, 0).r;
+
+    // 4. 应用随机抖动和生存判定
     float2 rand = float2(GetRandom(worldUV), GetRandom(worldUV + 1.5));
     float2 jitter = (rand - 0.5) * 0.25; 
-
     float survivalThreshold = GetRandom(worldUV + 3.14); 
-    
+
     if (weight > survivalThreshold) 
     {
-        _GrassDataBuffer[globalIdx].worldPos = worldPos + float3(jitter.x, 0, jitter.y);
+        // 最终坐标：Y轴使用刚算出来的 worldY
+        _GrassDataBuffer[globalIdx].worldPos = float3(worldPos.x + jitter.x, worldY, worldPos.z + jitter.y);
         _GrassDataBuffer[globalIdx].rotation = GetRandom(worldUV + 7.7) * 6.2831;
         _GrassDataBuffer[globalIdx].scale = 0.8 + weight * 0.4; 
     }
@@ -77,8 +86,6 @@ void FrustumCulling (uint3 id : SV_DispatchThreadID)
 {
     uint index = id.x;
     
-    // 将 3D 线程 ID 映射到 1D 实例索引
-    // uint index = id.x + id.y * 8 + id.z * (8 * 8); // 假设您使用 8x8x1 线程组
     if (index >= _InstanceCount)
     {
         return; // 防止越界
@@ -90,9 +97,9 @@ void FrustumCulling (uint3 id : SV_DispatchThreadID)
     // 提前剔除
     if (grass.scale <= 0) return;
     // 剔除所需数据
-    float4 center = float4(grass.worldPos,1); // 包围球中心 (x, y, z)
+    float4 center = float4(grass.worldPos, 1); // 包围球中心 (x, y, z)
 
-    float radius = 0.5f;       // 包围球半径 (r)
+    float radius = 0.5f;  // 包围球半径 (r)
     
     bool isVisible = true;
     
@@ -126,16 +133,16 @@ void FrustumCulling (uint3 id : SV_DispatchThreadID)
         if (distSq < _Threshold.x * _Threshold.x)
         { 
             // 近处物体
-            _lod0Buffer.Append(index);
+            _Lod0Buffer.Append(index);
         }
         else if(distSq < _Threshold.y * _Threshold.y )
         {
             // 远处物体
-            _lod1Buffer.Append(index);
+            _Lod1Buffer.Append(index);
         }
         else if (distSq < _Threshold.z * _Threshold.z)
         {
-            _lod2Buffer.Append(index);
+            _Lod2Buffer.Append(index);
         }
     }
 

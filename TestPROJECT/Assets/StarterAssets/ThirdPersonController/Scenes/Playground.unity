@@ -1653,7 +1653,7 @@ PrefabInstance:
     - target: {fileID: 2137286144267312592, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.415
+      value: 0.35
       objectReference: {fileID: 0}
     - target: {fileID: 2137286144267312592, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
@@ -1729,6 +1729,16 @@ PrefabInstance:
         type: 3}
       propertyPath: SprintSpeed
       value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 4416926081852918490, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
+      propertyPath: SpeedChangeRate
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 4416926081852918490, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
+      propertyPath: RotationSmoothTime
+      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 6383389649292874003, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
@@ -1824,6 +1834,11 @@ PrefabInstance:
       objectReference: {fileID: 7200000, guid: f1482d3a83178aa41a254a3df19694d5, type: 3}
     - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
+      propertyPath: rt
+      value: 
+      objectReference: {fileID: 8400000, guid: 9038f406ac9f5904b8b63a9f2eae7a75, type: 2}
+    - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
@@ -1839,9 +1854,42 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
+      propertyPath: threshold.x
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
+      propertyPath: threshold.y
+      value: 32
+      objectReference: {fileID: 0}
+    - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
+      propertyPath: threshold.z
+      value: 128
+      objectReference: {fileID: 0}
+    - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
       propertyPath: renderTexture
       value: 
       objectReference: {fileID: 8400000, guid: 9038f406ac9f5904b8b63a9f2eae7a75, type: 2}
+    - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
+      propertyPath: Lod0grassPrefab
+      value: 
+      objectReference: {fileID: 3569858589914721802, guid: 624a1f230d8e54a4fb8089d502f94c41,
+        type: 3}
+    - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
+      propertyPath: Lod1grassPrefab
+      value: 
+      objectReference: {fileID: 5828230166418348927, guid: 9ab3923eb6a27d146bb0a4b2eb518b4b,
+        type: 3}
+    - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
+      propertyPath: Lod2grassPrefab
+      value: 
+      objectReference: {fileID: 7305036322398922548, guid: 363281922b135ee4c87d760592520c6f,
+        type: 3}
     - target: {fileID: 9153691433636702580, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
       propertyPath: radius

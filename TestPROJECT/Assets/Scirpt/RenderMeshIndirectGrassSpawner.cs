@@ -15,9 +15,9 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
     public Vector4 threshold;
     public ComputeShader cullComputerShader;// 主要GPU着色器，用于剔除摄像机和Hi-z剔除
     private RenderTexture resultTexture;
-    private ComputeBuffer computeBuffer;// RW读写着色器，基本ComputeBuffer用来传输所有物体的原始数据和包围盒
+    private GraphicsBuffer computeBuffer;// RW读写着色器，基本ComputeBuffer用来传输所有物体的原始数据和包围盒
     // private ComputeBuffer appendBuffer; // Append Buffer
-    private ComputeBuffer lod0Buffer, lod1Buffer, lod2Buffer; // Append Buffer
+    private GraphicsBuffer lod0Buffer, lod1Buffer, lod2Buffer; // Append Buffer
     // ArgumentsBuffer 的数据结构（C# 数组）
     private uint[] args = new uint[5] { 0, 0, 0, 0, 0 };
     private GraphicsBuffer lod0argsBuffer, lod1argsBuffer, lod2argsBuffer;// 用来RenderMeshIndirect的接口特殊ComputeBuffer，他是这么说的，我也没搞明白具体差别，反正必须要使用这个类别
@@ -108,18 +108,18 @@ public class RenderMeshIndirectGrassSpawner : MonoBehaviour
         // 如果不使用computeBuffer，也可以使用rendertexture传入数据，一个是SetBuff一个是SetTexture。
         int grassStride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GrassData));
         // 这里表示多少个(第一个参数)数据（第二个参数，最好是通过计算），第三个是类型：普通buffer用的最多的，对应StructuredBuffer 和 RWStructuredBuffer, 有一种特殊的CBUFFER说是必须是96字节，AI说的没有验证
-        computeBuffer = new ComputeBuffer(instanceCount, grassStride, ComputeBufferType.Default);
+        computeBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured,instanceCount, grassStride);
 
         // 声明并计算frustumBuffer大小，这里传入6个简单的摄像机六面用于剔除，所以使用常量Cbuffer。
         // int frustumStride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(FrustumData));
         // frustumBuffer = new ComputeBuffer(1, frustumStride, ComputeBufferType.Constant);
 
         // 可见物体的buffer,只读模式，所以不需要去SetData
-        int visibleIndexStride = sizeof(uint);
+        int visibleIndexStride = sizeof(int);
         // appendBuffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);//只用setbuffer，不需要setdata
-        lod0Buffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);//只用setbuffer，不需要setdata
-        lod1Buffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);//只用setbuffer，不需要setdata
-        lod2Buffer = new ComputeBuffer(instanceCount, visibleIndexStride, ComputeBufferType.Append);//只用setbuffer，不需要setdata
+        lod0Buffer = new GraphicsBuffer(GraphicsBuffer.Target.Append,instanceCount, visibleIndexStride);//只用setbuffer，不需要setdata
+        lod1Buffer = new GraphicsBuffer(GraphicsBuffer.Target.Append,instanceCount, visibleIndexStride);//只用setbuffer，不需要setdata
+        lod2Buffer = new GraphicsBuffer(GraphicsBuffer.Target.Append,instanceCount, visibleIndexStride);//只用setbuffer，不需要setdata
 
         args[0] = lod0grassMesh.GetIndexCount(0); // Index Count (不变)
         args[1] = 0; // Instance Count (必须为0，由CopyCount覆盖)
