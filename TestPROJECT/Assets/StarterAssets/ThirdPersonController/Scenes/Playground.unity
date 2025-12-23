@@ -1879,6 +1879,11 @@ PrefabInstance:
       objectReference: {fileID: 8400000, guid: 9038f406ac9f5904b8b63a9f2eae7a75, type: 2}
     - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
+      propertyPath: grassEachMeter
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
       propertyPath: Lod0grassPrefab
       value: 
       objectReference: {fileID: 3569858589914721802, guid: 624a1f230d8e54a4fb8089d502f94c41,
@@ -1898,7 +1903,7 @@ PrefabInstance:
     - target: {fileID: 9153691433636702580, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
       propertyPath: radius
-      value: 3
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 9153691433636702580, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
