@@ -9,8 +9,9 @@ struct GrassData
     float rotation;// 4 bytes (绕 Y 轴转一下就行)
     float scale;
 };
-
 RWStructuredBuffer<GrassData> _GrassDataBuffer; // 物体原始数据，StructuredBuffer只读，RWStructuredBuffer为可读写，AppendStructuredBuffer只写
+StructuredBuffer<uint> _ActiveChunkIDsBuffer;
+uint _ActiveChunkCount;
 
 AppendStructuredBuffer<uint> _Lod0Buffer; // AppendStructuredBuffer 用于接收剔除后的结果
 AppendStructuredBuffer<uint> _Lod1Buffer;
@@ -27,7 +28,7 @@ float4 _Threshold; // lod远近设置
 float4 _FrustumPlanes[6];
 float4 _CameraPos;
 
-uint _TargetSlotID;     // 货架号
+uint _TargetChunkID;     // Chunk的ID
 float3 _ChunkBasePos;   // 这一块的左下角世界坐标 (如 32, 0, 64)
 float3 _TerrainBasePos;
 
@@ -42,7 +43,7 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
 {
     // 1. 索引计算 (1米4棵草，一行128个)
     uint index = id.y * 128 + id.x; 
-    uint globalIdx = _TargetSlotID * 16384 + index;
+    uint globalIdx = _TargetChunkID * 16384 + index;
 
     // 2. 计算世界坐标 (id.x 是 0~127，间距 0.25)
     float2 localOffset = id.xy * 0.25; 
@@ -73,6 +74,8 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
         _GrassDataBuffer[globalIdx].worldPos = float3(worldPos.x + jitter.x, worldY, worldPos.z + jitter.y);
         _GrassDataBuffer[globalIdx].rotation = GetRandom(worldUV + 7.7) * 6.2831;
         _GrassDataBuffer[globalIdx].scale = 0.8 + weight * 0.4; 
+
+        _GrassDataBuffer[globalIdx].worldPos = float3(worldPos.x + jitter.x, worldY, worldPos.z + jitter.y);
     }
     else 
     {
@@ -84,21 +87,31 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
 [numthreads(64,1,1)]
 void FrustumCulling (uint3 id : SV_DispatchThreadID)
 {
-    uint index = id.x;
-    if (index >= _InstanceCount)
-    {
-        return; // 防止越界
-    }
-    // 1. 获取当前实例的数据
+    // 1. 确定当前线程正在处理“可见清单”中的第几个 Chunk
+    // 假设 id.x 是从 0 增长到 (可见块数 * 16384)
+    uint visibleChunkSeq = id.x / 16384; 
+    
+    // 安全检查：超过可见总数直接退
+    if (visibleChunkSeq >= _ActiveChunkCount) return;
+
+    // 2. 从任务清单获取这个块在大 Buffer 里的真实 Slot ID
+    int realSlotID = _ActiveChunkIDsBuffer[visibleChunkSeq];
+    
+    // 3. 计算这棵草在该 Chunk 内部的偏移
+    uint grassIdxInChunk = id.x % 16384;
+
+    // 4. 算出这棵草在 _GrassDataBuffer (全量大 Buffer) 中的最终位置
+    uint index = (uint)realSlotID * 16384 + grassIdxInChunk;
+
+    // 5. 读取数据
     GrassData grass = _GrassDataBuffer[index];
-    // 提前剔除
     if (grass.scale <= 0) return;
     // 剔除所需数据
     float4 center = float4(grass.worldPos, 1); // 包围球中心 (x, y, z)
     float radius = 1;  // 包围球半径 (r)
     bool isVisible = true;
-    
     // 2. 实现包围球视锥体剔除 (Sphere-Frustum Culling)
+
     for (int i = 0; i < 6; i++)
     {
         float4 plane = _FrustumPlanes[i];
