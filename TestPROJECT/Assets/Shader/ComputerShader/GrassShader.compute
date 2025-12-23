@@ -3,34 +3,34 @@
 #pragma kernel FrustumCulling
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
-uint _InstanceCount; // 一起实例化的总数量
-
-Texture2D<float4> _SplatMap;
-SamplerState LinearClampSampler;// 只要 C# 传了图，Unity 会自动处理采样器
-Texture2D<float4> _HeightMap;
-float _TerrainHeight;
-
 struct GrassData
 {
     float3 worldPos;    // 12 bytes
     float rotation;// 4 bytes (绕 Y 轴转一下就行)
     float scale;
 };
-// 物体原始数据，StructuredBuffer只读，RWStructuredBuffer为可读写，AppendStructuredBuffer只写
-RWStructuredBuffer<GrassData> _GrassDataBuffer;
-// AppendStructuredBuffer 用于接收剔除后的结果
-AppendStructuredBuffer<uint> _Lod0Buffer;
+
+RWStructuredBuffer<GrassData> _GrassDataBuffer; // 物体原始数据，StructuredBuffer只读，RWStructuredBuffer为可读写，AppendStructuredBuffer只写
+
+AppendStructuredBuffer<uint> _Lod0Buffer; // AppendStructuredBuffer 用于接收剔除后的结果
 AppendStructuredBuffer<uint> _Lod1Buffer;
 AppendStructuredBuffer<uint> _Lod2Buffer;
+
+Texture2D<float4> _SplatMap;
+Texture2D<float4> _HeightMap;
+SamplerState LinearClampSampler; // 只要 C# 传了图，Unity 会自动处理采样器
+
+uint _InstanceCount; // 一起实例化的总数量
+float _TerrainHeight;
 
 float4 _Threshold; // lod远近设置
 float4 _FrustumPlanes[6];
 float4 _CameraPos;
 
-
 uint _TargetSlotID;     // 货架号
 float3 _ChunkBasePos;   // 这一块的左下角世界坐标 (如 32, 0, 64)
 float3 _TerrainBasePos;
+
 // 一个经典的基于坐标采样的随机函数
 float GetRandom(float2 st)
 {
@@ -85,33 +85,26 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
 void FrustumCulling (uint3 id : SV_DispatchThreadID)
 {
     uint index = id.x;
-    
     if (index >= _InstanceCount)
     {
         return; // 防止越界
     }
-
     // 1. 获取当前实例的数据
     GrassData grass = _GrassDataBuffer[index];
-
     // 提前剔除
     if (grass.scale <= 0) return;
     // 剔除所需数据
     float4 center = float4(grass.worldPos, 1); // 包围球中心 (x, y, z)
-
-    float radius = 0.5f;  // 包围球半径 (r)
-    
+    float radius = 1;  // 包围球半径 (r)
     bool isVisible = true;
     
     // 2. 实现包围球视锥体剔除 (Sphere-Frustum Culling)
     for (int i = 0; i < 6; i++)
     {
         float4 plane = _FrustumPlanes[i];
-        
         // 计算点到平面的有符号距离：Ax + By + Cz + D
         // 注意：这里我们使用 float4(x, y, z, 1.0) 和 Plane(A, B, C, D) 的点积
         float distance = dot(plane, center); 
-        
         // 如果 距离 < -半径，则整个球体都在平面外部
         // distance + radius < 0.0 是更常见的写法
         if (distance < -radius) 
@@ -123,7 +116,6 @@ void FrustumCulling (uint3 id : SV_DispatchThreadID)
     
     if (isVisible)
     {
-
         // 如果可见，将这个实例的原始索引写入 Append Buffer
         // _VisibleIndexBuffer.Append(index);
         //进阶版本，根据远近使用不同的shader绘制
@@ -145,5 +137,4 @@ void FrustumCulling (uint3 id : SV_DispatchThreadID)
             _Lod2Buffer.Append(index);
         }
     }
-
 }

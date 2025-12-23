@@ -15,9 +15,9 @@ RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 9
   m_Fog: 0
-  m_FogColor: {r: 0.4862745, g: 0.69411767, b: 0.8117647, a: 1}
+  m_FogColor: {r: 0.7877358, g: 0.9999999, b: 1, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.025
+  m_FogDensity: 0.01
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
   m_AmbientSkyColor: {r: 0.9386859, g: 0.90466136, b: 0.84687346, a: 1}
@@ -1715,6 +1715,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Player
       objectReference: {fileID: 0}
+    - target: {fileID: 4416926081852918481, guid: 64dce48905ffd9b4293e595fa6941544,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4416926081852918490, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
       propertyPath: horse
@@ -1845,7 +1850,7 @@ PrefabInstance:
     - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
       propertyPath: viewRadius
-      value: 128
+      value: 164
       objectReference: {fileID: 0}
     - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
@@ -2799,6 +2804,11 @@ PrefabInstance:
       propertyPath: m_SizeDelta.y
       value: 120
       objectReference: {fileID: 0}
+    - target: {fileID: 6576351514221915275, guid: 1aebeac9caa00d24aac02eb6414b5fe7,
+        type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 558.7031
+      objectReference: {fileID: 0}
     - target: {fileID: 6577433561206692154, guid: 1aebeac9caa00d24aac02eb6414b5fe7,
         type: 3}
       propertyPath: m_SizeDelta.x
@@ -2897,12 +2907,12 @@ PrefabInstance:
     - target: {fileID: 7698504389805454242, guid: 1aebeac9caa00d24aac02eb6414b5fe7,
         type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -103.69922
+      value: -103.703125
       objectReference: {fileID: 0}
     - target: {fileID: 7698504389805454242, guid: 1aebeac9caa00d24aac02eb6414b5fe7,
         type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 84.69971
+      value: 84.703125
       objectReference: {fileID: 0}
     - target: {fileID: 7729744957358975275, guid: 1aebeac9caa00d24aac02eb6414b5fe7,
         type: 3}

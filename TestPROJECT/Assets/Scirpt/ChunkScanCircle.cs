@@ -11,43 +11,60 @@ public class ChunkScanCircle : MonoBehaviour
     public Vector4 threshold; // lod远近设置
     private Vector4[] frustumPlanesArray = new Vector4[6];
     private Camera cam;
-    private int instanceCountChunk;
-    private int grassEachMeter = 4;
-    private int chunkSize = 32;// 每块chunk分区大小
-    private float viewRadius = 128; // 实际扫描的圆形半径（米）
+    private uint instanceCountChunk;
+    private uint grassEachMeter = 4;
+    private uint chunkSize = 32;// 每块chunk分区大小
+    public float viewRadius = 164; // 实际扫描的圆形半径（米）,他来自动生成chunk的数量，chunk的数量决定buffer的总大小，所以调整他就行了
     private float terrainSize = 1024; // 每块terrain的大小
-
     private Dictionary<Vector2Int, int> chunkToSlot = new Dictionary<Vector2Int, int>();
     private Dictionary<Vector2Int, Terrain> terrainGrid = new Dictionary<Vector2Int, Terrain>();
-
     private Stack<int> freeSlots = new Stack<int>();
     private List<Vector2Int> circleOffsetTable = new List<Vector2Int>(); // 预计算的圆形偏移表
-
     private Vector2Int lastPlayerChunk = new Vector2Int(-999, -999); // 用于跨界检测
     private int maxSlots = 200; // 根据半径覆盖面积适当调大
 
     [StructLayout(LayoutKind.Sequential)]
     public struct GrassData { public Vector3 worldPos; public float rotation; public float scale; };
-    private GraphicsBuffer grassDataBuffer;
-    private int generateGrassHandle;
-    private int FrustumCullingHandle;
 
     private uint[] args = new uint[5] { 0, 0, 0, 0, 0 };
-    public GameObject Lod0grassPrefab, Lod1grassPrefab, Lod2grassPrefab;
-    private Mesh lod0grassMesh, lod1grassMesh, Lod2grassMesh;
-    private RenderParams lod0renderParams, lod1renderParams, lod2renderParams;
-    private Material lod0grassMaterial, lod1grassMaterial, lod2grassMaterial;
-
-    private GraphicsBuffer lod0Buffer, lod1Buffer, lod2Buffer; // Append Buffer
-    private GraphicsBuffer lod0argsBuffer, lod1argsBuffer, lod2argsBuffer;// 用来RenderMeshIndirect的接口特殊ComputeBuffer，他是这么说的，我也没搞明白具体差别，反正必须要使用这个类别
-    private static readonly int FrustumPlanesID = Shader.PropertyToID("_FrustumPlanes"); // 缓存 Shader ID
-    private static readonly int GrassDataBufferID = Shader.PropertyToID("_GrassDataBuffer");
-    private static readonly int lod0BufferID = Shader.PropertyToID("_Lod0Buffer");
-    private static readonly int lod1BufferID = Shader.PropertyToID("_Lod1Buffer");
-    private static readonly int lod2BufferID = Shader.PropertyToID("_Lod2Buffer");
+    public GameObject
+        Lod0grassPrefab,
+        Lod1grassPrefab,
+        Lod2grassPrefab;
+    private Mesh
+        lod0grassMesh,
+        lod1grassMesh,
+        Lod2grassMesh;
+    private RenderParams
+        lod0renderParams,
+        lod1renderParams,
+        lod2renderParams;
+    private Material
+        lod0grassMaterial,
+        lod1grassMaterial,
+        lod2grassMaterial;
+    private GraphicsBuffer // Structured Buffer
+        grassDataBuffer;
+    private GraphicsBuffer  // Append Buffer
+        lod0Buffer,
+        lod1Buffer,
+        lod2Buffer;
+    private GraphicsBuffer // 用来 RenderMeshIndirect 的接口特殊 ComputeBuffer，他是这么说的，我也没搞明白具体差别，反正必须要使用这个类别
+        lod0argsBuffer,
+        lod1argsBuffer,
+        lod2argsBuffer;
+    private static readonly int
+        FrustumPlanesID = Shader.PropertyToID("_FrustumPlanes"),
+        GrassDataBufferID = Shader.PropertyToID("_GrassDataBuffer"),
+        lod0BufferID = Shader.PropertyToID("_Lod0Buffer"),
+        lod1BufferID = Shader.PropertyToID("_Lod1Buffer"),
+        lod2BufferID = Shader.PropertyToID("_Lod2Buffer");
+    private int
+        generateGrassHandle,
+        FrustumCullingHandle;
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct FrustumData // 摄像机的视锥体由六个平面定义：左、右、上、下、近、远。每个平面都由一个四维向量 $\vec{P} = (A, B, C, D)$ 表示
+    struct FrustumData // 摄像机的视锥体由六个平面定义：左、右、上、下、近、远。每个平面都由一个四维向量 $\vec{P} = (A, B, C, D)$ 表示
     {
         public Vector4 LeftPlane;
         public Vector4 RightPlane;
@@ -56,22 +73,22 @@ public class ChunkScanCircle : MonoBehaviour
         public Vector4 NearPlane;
         public Vector4 FarPlane;
     }
-    void Start()
+    private void Start()
     {
         if (cam == null) cam = Camera.main;
-        // 1. 预计算圆形偏移表 (只在启动时做一次)
+        // 预计算圆形偏移表 (只在启动时做一次)
         InitializeCircleOffsets();
-
-        // 生成场景的terrain列表
+        // 生成场景的 terrain 列表
         InitializeTerrainGrid();
-        // 2. 初始化显存坑位
+        // 初始化显存坑位
         maxSlots = circleOffsetTable.Count + 10; // 稍微多备几个防止边界闪烁
         for (int i = 0; i < maxSlots; i++) freeSlots.Push(i);
 
-        // 写入草的computerbuffer
-        instanceCountChunk = (int)(chunkSize * chunkSize * grassEachMeter * grassEachMeter);
+        // 写入草的 ComputerBuffer，这是所有草的buffer，他用来写入所有chunk的草的数据，
+        // 由于是使用 ComputerShader 来计算并写入草的坐标和其他信息，所以这里buffer不需要进行Setdata
+        instanceCountChunk = (uint)(chunkSize * chunkSize * grassEachMeter * grassEachMeter);
         int grassStride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GrassData));
-        grassDataBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, instanceCountChunk * maxSlots, grassStride);
+        grassDataBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, (int)(instanceCountChunk * maxSlots), grassStride);
 
         // 收集 Mesh 和 Material
         lod0grassMesh = Lod0grassPrefab.GetComponent<MeshFilter>().sharedMesh;
@@ -80,24 +97,24 @@ public class ChunkScanCircle : MonoBehaviour
         lod0grassMaterial = Lod0grassPrefab.GetComponent<MeshRenderer>().sharedMaterial;
         lod1grassMaterial = Lod1grassPrefab.GetComponent<MeshRenderer>().sharedMaterial;
         lod2grassMaterial = Lod2grassPrefab.GetComponent<MeshRenderer>().sharedMaterial;
-        // 3. 检查 Instancing 启用状态
+        // 检查 Instancing 启用状态
         if (!lod0grassMaterial.enableInstancing)
         {
-            // 启用 Instancing（如果材质的Shader支持且 Inspector 中未勾选）
+            // 启用 Instancing（如果材质的 Shader 支持且 Inspector 中未勾选）
             lod0grassMaterial.enableInstancing = true;
             Debug.LogWarning("GPU Instancing was automatically enabled on the material.");
         }
         lod0renderParams = new(lod0grassMaterial);
         if (!lod1grassMaterial.enableInstancing)
         {
-            // 启用 Instancing（如果材质的Shader支持且 Inspector 中未勾选）
+            // 启用 Instancing（如果材质的 Shader 支持且 Inspector 中未勾选）
             lod1grassMaterial.enableInstancing = true;
             Debug.LogWarning("GPU Instancing was automatically enabled on the material.");
         }
         lod1renderParams = new(lod1grassMaterial);
         if (!lod2grassMaterial.enableInstancing)
         {
-            // 启用 Instancing（如果材质的Shader支持且 Inspector 中未勾选）
+            // 启用 Instancing（如果材质的 Shader 支持且 Inspector 中未勾选）
             lod2grassMaterial.enableInstancing = true;
             Debug.LogWarning("GPU Instancing was automatically enabled on the material.");
         }
@@ -109,12 +126,11 @@ public class ChunkScanCircle : MonoBehaviour
         lod1renderParams.worldBounds = playerBounds;
         lod2renderParams.worldBounds = playerBounds;
 
-        // 可见物体的buffer,只读模式，所以不需要去SetData
+        // 可见物体的 Buffer, 只写模式，在 ComputerShader 中写入，所以这里不需要去SetData
         int visibleIndexStride = sizeof(int);
-        // appendBuffer = new ComputeBuffer(instanceCountChunk, visibleIndexStride, ComputeBufferType.Append);//只用setbuffer，不需要setdata
-        lod0Buffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, instanceCountChunk * maxSlots, visibleIndexStride);//只用setbuffer，不需要setdata
-        lod1Buffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, instanceCountChunk * maxSlots, visibleIndexStride);//只用setbuffer，不需要setdata
-        lod2Buffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, instanceCountChunk * maxSlots, visibleIndexStride);//只用setbuffer，不需要setdata
+        lod0Buffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, (int)(instanceCountChunk * maxSlots), visibleIndexStride);//只用SetBBuffer，不需要SetData
+        lod1Buffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, (int)(instanceCountChunk * maxSlots), visibleIndexStride);//只用SetBBuffer，不需要SetData
+        lod2Buffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, (int)(instanceCountChunk * maxSlots), visibleIndexStride);//只用SetBBuffer，不需要SetData
 
         args[0] = lod0grassMesh.GetIndexCount(0); // Index Count (不变)
         args[1] = 0; // Instance Count (必须为0，由CopyCount覆盖)
@@ -131,10 +147,10 @@ public class ChunkScanCircle : MonoBehaviour
         generateGrassHandle = cs.FindKernel("GenerateGrass");
         FrustumCullingHandle = cs.FindKernel("FrustumCulling");
 
-        cs.SetInt("_InstanceCount", instanceCountChunk * maxSlots);//指定绘制数量
+        cs.SetInt("_InstanceCount", (int)(instanceCountChunk * maxSlots));//指定绘制数量
         cs.SetVector("_Threshold", threshold);// 远近分界线LOD
 
-        // 传输数据后设置computershader，并标记BUFFER的数据名字进行计算。
+        // 传输数据后设置 ComputerShader，并标记 BUFFER 的数据名字进行计算。
         cs.SetBuffer(generateGrassHandle, GrassDataBufferID, grassDataBuffer);
         cs.SetBuffer(FrustumCullingHandle, GrassDataBufferID, grassDataBuffer);
 
@@ -150,7 +166,10 @@ public class ChunkScanCircle : MonoBehaviour
         lod2grassMaterial.SetBuffer(lod2BufferID, lod2Buffer);
     }
 
-    void InitializeCircleOffsets()
+    /// <summary>
+    /// 预先定好chunk，位移
+    /// </summary>
+    private void InitializeCircleOffsets()
     {
         circleOffsetTable.Clear();
         // 计算半径覆盖的最大格子跨度
@@ -170,8 +189,9 @@ public class ChunkScanCircle : MonoBehaviour
         }
         Debug.Log($"圆形扫描初始化完成，覆盖 Chunk 数量: {circleOffsetTable.Count}");
     }
+
     public RenderTexture rt;
-    void Update()
+    private void Update()
     {
         if (player == null) return;
 
@@ -184,11 +204,38 @@ public class ChunkScanCircle : MonoBehaviour
             lastPlayerChunk = currentChunk;
         }
     }
-    void UpdateChunks(Vector2Int centerCoord)
+
+    private void LateUpdate()
+    {
+        lod0Buffer.SetCounterValue(0);//清除计数
+        lod1Buffer.SetCounterValue(0);//清除计数
+        lod2Buffer.SetCounterValue(0);//清除计数
+
+        PrepareAndSetFrustumPlanes();
+
+        int threadGroups = Mathf.CeilToInt((float)(instanceCountChunk * maxSlots) / 64.0f);
+        cs.Dispatch(FrustumCullingHandle, threadGroups, 1, 1); // Z 必须是 1
+
+        GraphicsBuffer.CopyCount(lod0Buffer, lod0argsBuffer, sizeof(uint));
+        Graphics.RenderMeshIndirect(lod0renderParams, lod0grassMesh, lod0argsBuffer);
+
+        GraphicsBuffer.CopyCount(lod1Buffer, lod1argsBuffer, sizeof(uint));
+        Graphics.RenderMeshIndirect(lod1renderParams, lod1grassMesh, lod1argsBuffer);
+
+        GraphicsBuffer.CopyCount(lod2Buffer, lod2argsBuffer, sizeof(uint));
+        Graphics.RenderMeshIndirect(lod2renderParams, Lod2grassMesh, lod2argsBuffer);
+    }
+
+    /// <summary>
+    /// 更新chunk，同步检测每个chunk下面的terrain，对新加入的chunk传入地形材质分区tex、高度tex等，
+    /// 启动GPU对每个新加入的chunk进行Dispatch，把生成的物体数据写入最大的buffer
+    /// </summary>
+    /// <param name="centerCoord"></param>
+    private void UpdateChunks(Vector2Int centerCoord)
     {
         HashSet<Vector2Int> wantedChunks = new HashSet<Vector2Int>();
 
-        // 4. 使用预存的偏移表快速定位目标格子 (这里只有加法，没有距离计算！)
+        // 使用预存的偏移表快速定位目标格子 (这里只有加法，没有距离计算！)
         foreach (var offset in circleOffsetTable)
         {
             Vector2Int coord = centerCoord + offset;
@@ -202,18 +249,16 @@ public class ChunkScanCircle : MonoBehaviour
                 chunkToSlot.Add(coord, assignedSlot);
 
                 Vector3 basePos = new Vector3(coord.x * chunkSize, 0, coord.y * chunkSize);
-                // GetHeightmapTexture 是地形生成的实时高度图
-                cs.SetTexture(generateGrassHandle, "_HeightMap", t.terrainData.heightmapTexture);
-                // 还需要传一个地形高度，因为高度图里存的是 0-1 的归一化值
-                cs.SetFloat("_TerrainHeight", t.terrainData.size.y);
-                cs.SetTexture(generateGrassHandle, "_SplatMap", t.terrainData.GetAlphamapTexture(0));
+                cs.SetTexture(generateGrassHandle, "_SplatMap", t.terrainData.GetAlphamapTexture(0)); // 地形材质分区，0.a表示第一层、0.c表示第三层、1.a表示第五层
+                cs.SetTexture(generateGrassHandle, "_HeightMap", t.terrainData.heightmapTexture); // GetHeightmapTexture 是地形生成的实时高度图
+                cs.SetFloat("_TerrainHeight", t.terrainData.size.y); // 还需要传一个地形高度，因为高度图里存的是 0-1 的归一化值
                 cs.SetVector("_ChunkBasePos", basePos);
                 cs.SetVector("_TerrainBasePos", t.transform.position);
                 cs.SetInt("_TargetSlotID", assignedSlot);
                 cs.Dispatch(generateGrassHandle, 16, 16, 1);
             }
         }
-        // 5. 增量卸载旧格子
+        // 增量卸载旧格子
         List<Vector2Int> toRemove = new List<Vector2Int>();
         foreach (var activeCoord in chunkToSlot.Keys)
         {
@@ -230,39 +275,20 @@ public class ChunkScanCircle : MonoBehaviour
         }
     }
 
-    void LateUpdate()
+    /// <summary>
+    /// 对所有Chunk的AABB进行摄像机剔除
+    /// </summary>
+    void CalculateChunkAABB()
     {
-
-        lod0Buffer.SetCounterValue(0);//清除计数
-        lod1Buffer.SetCounterValue(0);//清除计数
-        lod2Buffer.SetCounterValue(0);//清除计数
-        PrepareAndSetFrustumPlanes();
-
-        int threadGroups = Mathf.CeilToInt((float)(instanceCountChunk * maxSlots) / 64.0f);
-        cs.Dispatch(FrustumCullingHandle, threadGroups, 1, 1); // Z 必须是 1
-
-        GraphicsBuffer.CopyCount(lod0Buffer, lod0argsBuffer, sizeof(uint));
-        Graphics.RenderMeshIndirect(lod0renderParams, lod0grassMesh, lod0argsBuffer);
-
-        GraphicsBuffer.CopyCount(lod1Buffer, lod1argsBuffer, sizeof(uint));
-        Graphics.RenderMeshIndirect(lod1renderParams, lod1grassMesh, lod1argsBuffer);
-
-        GraphicsBuffer.CopyCount(lod2Buffer, lod2argsBuffer, sizeof(uint));
-        Graphics.RenderMeshIndirect(lod2renderParams, Lod2grassMesh, lod2argsBuffer);
-
-        uint[] debugArgs = new uint[5];
-        lod0argsBuffer.GetData(debugArgs);
-        Debug.Log($"GPU 汇报：LOD0 准备绘制的实例数量是: {debugArgs[1]}");
+        
     }
 
     // CS摄像机剔除
-    public void PrepareAndSetFrustumPlanes()
+    private void PrepareAndSetFrustumPlanes()
     {
-        // 1. 获取摄像机平面
-        // 注意：您需要确保 'camera' 变量已在类中定义并赋值
+        // 获取摄像机平面，需要确保 'camera' 变量已在类中定义并赋值
         Plane[] cameraPlanes = GeometryUtility.CalculateFrustumPlanes(cam);
-        // 2. 将 Plane[] 转换为 Vector4[] (GPU 友好格式)
-        // C# 的 Plane 结构体已经包含了法线(N)和距离(D)，顺序是固定的。
+        // 将 Plane[] 转换为 Vector4[] (GPU 友好格式)，C# 的 Plane 结构体已经包含了法线(N)和距离(D)，顺序是固定的。
         // 循环赋值，而不是手动重复赋值 6 次
         for (int i = 0; i < 6; i++)
         {
@@ -275,18 +301,15 @@ public class ChunkScanCircle : MonoBehaviour
                 cameraPlanes[i].distance
             );
         }
-        // 3. 将数组设置给全局 Shader 属性
-        // 这是最快、最简洁的传输方式
-        // Shader.SetGlobalVectorArray(FrustumPlanesID, frustumPlanesArray);
+        // 将数组设置Shader 属性 这是最快、最简洁的传输方式，并没有使用全局Shader.SetGlobalVectorArray(FrustumPlanesID, frustumPlanesArray);
         cs.SetVectorArray(FrustumPlanesID, frustumPlanesArray);
         cs.SetVector("_CameraPos", cam.transform.position);
     }
 
-
     /// <summary>
-    /// 生成一个字典（当前所激活的terrain）
+    /// 生成一个字典（拿到当前所激活的terrain）
     /// </summary>
-    void InitializeTerrainGrid()
+    private void InitializeTerrainGrid()
     {
         foreach (var t in Terrain.activeTerrains)
         {
@@ -300,7 +323,7 @@ public class ChunkScanCircle : MonoBehaviour
     /// <summary>
     /// 输入一个世界坐标，返回terrain
     /// </summary>
-    public Terrain GetTerrainAtPos(Vector3 worldPos)
+    private Terrain GetTerrainAtPos(Vector3 worldPos)
     {
         Vector2Int index = new Vector2Int(Mathf.FloorToInt(worldPos.x / terrainSize), Mathf.FloorToInt(worldPos.z / terrainSize));
         terrainGrid.TryGetValue(index, out Terrain t);
@@ -309,14 +332,14 @@ public class ChunkScanCircle : MonoBehaviour
     /// <summary>
     /// 输入一个Chunk坐标，返回terrain
     /// </summary>
-    public Terrain GetTerrainAtPos(Vector2Int chunk)
+    private Terrain GetTerrainAtPos(Vector2Int chunk)
     {
         Vector2Int index = new Vector2Int(Mathf.FloorToInt(chunk.x * chunkSize / terrainSize), Mathf.FloorToInt(chunk.y * chunkSize / terrainSize));
         terrainGrid.TryGetValue(index, out Terrain t);
         return t;
     }
 
-    void OnDrawGizmos()
+    private void OnDrawGizmos()
     {
         if (player == null) return;
 
@@ -344,7 +367,7 @@ public class ChunkScanCircle : MonoBehaviour
         }
     }
 
-    void OnDisable()
+    private void OnDisable()
     {
         grassDataBuffer.Dispose();
         lod0Buffer.Dispose();

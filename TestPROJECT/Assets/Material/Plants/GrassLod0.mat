@@ -34,7 +34,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _AlphaClip: 0.1
-    - _Smoothness: 0.4
+    - _Smoothness: 0.22
     - _WaveSpeed_X: 0.1
     - _WaveSpeed_Y: 0
     - _WaveStrength: 10
