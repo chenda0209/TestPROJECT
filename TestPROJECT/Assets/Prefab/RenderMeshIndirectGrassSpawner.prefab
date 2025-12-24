@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &7534777453651946236
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8116110835735071854}
+  - component: {fileID: 3931166369975869147}
+  m_Layer: 0
+  m_Name: RenderMeshIndirectGrassSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8116110835735071854
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7534777453651946236}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3931166369975869147
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7534777453651946236}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67ac2f900a66ee24bb159192c4796b2c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Lod0grassPrefab: {fileID: 3569858589914721802, guid: 624a1f230d8e54a4fb8089d502f94c41,
+    type: 3}
+  Lod1grassPrefab: {fileID: 5828230166418348927, guid: 9ab3923eb6a27d146bb0a4b2eb518b4b,
+    type: 3}
+  Lod2grassPrefab: {fileID: 7305036322398922548, guid: 363281922b135ee4c87d760592520c6f,
+    type: 3}
+  boundWidth: 200
+  boundHeight: 200
+  threshold: {x: 8, y: 36, z: 96, w: 0}
+  cullComputerShader: {fileID: 7200000, guid: c3bcfb45b24de634aa5e4ca20b5d9ede, type: 3}
+  instanceCount: 500000

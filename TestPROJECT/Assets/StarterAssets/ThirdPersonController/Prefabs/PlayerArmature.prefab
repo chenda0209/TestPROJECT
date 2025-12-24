@@ -1036,7 +1036,6 @@ GameObject:
   - component: {fileID: 5885216827943657505}
   - component: {fileID: 135756642000475821}
   - component: {fileID: 4416926081852918493}
-  - component: {fileID: 9153691433636702580}
   - component: {fileID: 8508069147792250252}
   m_Layer: 8
   m_Name: PlayerArmature
@@ -1299,21 +1298,6 @@ MonoBehaviour:
   m_DefaultActionMap: Player
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
---- !u!114 &9153691433636702580
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4416926081852918481}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 25a97286759bebe4fa0d7f65ea92448c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  player: {fileID: 3893294197879345259}
-  chunkSize: 32
-  radius: 5
 --- !u!114 &8508069147792250252
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1327,8 +1311,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   player: {fileID: 3893294197879345259}
-  chunkSize: 32
+  cs: {fileID: 0}
+  threshold: {x: 0, y: 0, z: 0, w: 0}
   viewRadius: 150
+  Lod0grassPrefab: {fileID: 0}
+  Lod1grassPrefab: {fileID: 0}
+  Lod2grassPrefab: {fileID: 0}
 --- !u!1 &4523139366846529165
 GameObject:
   m_ObjectHideFlags: 0
