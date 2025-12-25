@@ -434,8 +434,8 @@ public class ChunkScanCircle : MonoBehaviour
             Gizmos.color = Color.red;
             Gizmos.DrawWireCube(center, new Vector3(terrainSize * 0.9f, 0.2f, terrainSize * 0.9f));
         }
-        Gizmos.color = Color.gray;
-        Gizmos.DrawCube(lod0renderParams.worldBounds.center, lod0renderParams.worldBounds.size);
+        // Gizmos.color = Color.gray;
+        // Gizmos.DrawCube(lod0renderParams.worldBounds.center, lod0renderParams.worldBounds.size);
     }
 
     private void OnDisable()
