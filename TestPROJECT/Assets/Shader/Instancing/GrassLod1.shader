@@ -34,6 +34,7 @@ Shader "Custom/GrassLod1"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile _ _SHADOWS_SOFT
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_SCREEN
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl" // ✅ 包含光照函数和宏
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl" // ✅ 包含光照函数和宏
@@ -74,7 +75,6 @@ Shader "Custom/GrassLod1"
             {
                 half2 uv : TEXCOORD0;
                 float4 vertex : POSITION;
-
                 float3 normal : NORMAL;
                 float4 vcolor : COLOR;
                 // uint vertexID : SV_VertexID;
@@ -90,7 +90,7 @@ Shader "Custom/GrassLod1"
                 half2 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
                 float3 normal : NORMAL;
-                float4 shadowCoord : TEXCOORD5;
+
                 float4 positionOS: TEXCOORD4;
                 float3 positionWS: TEXCOORD3;
                 float4 vcolor : TEXCOORD2;
@@ -287,6 +287,8 @@ Shader "Custom/GrassLod1"
             //     return o;
             // }
 
+
+            // 定义旋转函数
             float3 RotateY(float3 pos, float radian)
             {
                 float s, c;
@@ -343,7 +345,7 @@ Shader "Custom/GrassLod1"
                 float3 normalWS = normalize(mul(windRot, normalRS));
 
                 // --- 赋值 ---
-                o.shadowCoord = TransformWorldToShadowCoord(worldPos);
+                
                 o.positionOS = v.vertex;
                 o.positionWS = worldPos;
                 o.vertex = TransformWorldToHClip(worldPos);
@@ -364,19 +366,19 @@ Shader "Custom/GrassLod1"
                 InitializeBRDFData(col.rgb * _Color.rgb, 0, half3(1, 1, 1), _Smoothness, alpha, brdfData);
 
                 half3 normal = isFace? normalize(i.normal): normalize(-i.normal);
- 
-                // half4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
-                Light light = GetMainLight(i.shadowCoord);
-                // half shadowAmount = MainLightRealtimeShadow(i.shadowCoord);
+
+                half4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
+                Light light = GetMainLight(shadowCoord);
+                half shadowAmount = MainLightRealtimeShadow(shadowCoord);
                 half3 lambert = LightingLambert(light.color, light.direction, normal);
                 
                 half3 viewDir = GetWorldSpaceNormalizeViewDir(i.positionWS);
                 half3 specular = DirectBRDFSpecular(brdfData, normal, light.direction, viewDir);
                 // half3 brdf = DirectBRDF(brdfData, normal, light.direction, viewDir) * lambert * light.shadowAttenuation ;//没有使用兰伯特，背光效果太差了
-                half3 brdf = (brdfData.diffuse + specular * brdfData.specular);
+                half3 brdf = (brdfData.diffuse + specular * brdfData.specular) ;
                 float3 GI = SampleSH(normal);
 
-                return half4((brdf * lambert * light.shadowAttenuation + GI * col.rgb * _Color.rgb) , 1);
+                return half4((brdf * lambert * light.shadowAttenuation + GI * col.rgb * _Color.rgb) * i.positionOS.y, 1);
             }
             ENDHLSL
         }

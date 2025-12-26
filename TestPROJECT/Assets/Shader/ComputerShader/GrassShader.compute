@@ -62,20 +62,20 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
     // 计算实际世界高度：地形物体自身的Y轴位置 + (归一化高度 * 地形设定的最大高度)
     float worldY = _TerrainBasePos.y + (height * _TerrainHeight) * 2;
 
-    // 3. 采样权重图 (你之前的逻辑)
-    float weight = _SplatMap.SampleLevel(LinearClampSampler, worldUV, 0).r;
+    // 3. 采样权重图
+    float4 splat = _SplatMap.SampleLevel(LinearClampSampler, worldUV, 0);
 
     // 4. 应用随机抖动和生存判定
     float2 rand = float2(GetRandom(worldUV), GetRandom(worldUV + 1.5));
     float2 jitter = (rand - 0.5) * 0.25; 
     // float survivalThreshold = GetRandom(worldUV + 3.14); 
 
-    if (weight > 0.9) 
+    if (splat.r > 0.99) 
     {
         // 最终坐标：Y轴使用刚算出来的 worldY
         _GrassDataBuffer[globalIdx].worldPos = float3(worldPos.x + jitter.x, worldY, worldPos.z + jitter.y);
         _GrassDataBuffer[globalIdx].rotation = GetRandom(worldUV + 7.7) * 6.2831;
-        _GrassDataBuffer[globalIdx].scale = 0.8 + weight * 0.4; 
+        _GrassDataBuffer[globalIdx].scale = 0.5 + rand * 0.5; 
     }
     else 
     {

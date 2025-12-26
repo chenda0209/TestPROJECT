@@ -90,7 +90,7 @@ Shader "Custom/GrassLod0"
                 half2 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
                 float3 normal : NORMAL;
-                float4 shadowCoord : TEXCOORD5;
+
                 float4 positionOS: TEXCOORD4;
                 float3 positionWS: TEXCOORD3;
                 float4 vcolor : TEXCOORD2;
@@ -345,7 +345,7 @@ Shader "Custom/GrassLod0"
                 float3 normalWS = normalize(mul(windRot, normalRS));
 
                 // --- 赋值 ---
-                o.shadowCoord = TransformWorldToShadowCoord(worldPos);
+                
                 o.positionOS = v.vertex;
                 o.positionWS = worldPos;
                 o.vertex = TransformWorldToHClip(worldPos);
@@ -367,9 +367,9 @@ Shader "Custom/GrassLod0"
 
                 half3 normal = isFace? normalize(i.normal): normalize(-i.normal);
 
-                
-                Light light = GetMainLight(i.shadowCoord);
-                // half shadowAmount = MainLightRealtimeShadow(shadowCoord);
+                half4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
+                Light light = GetMainLight(shadowCoord);
+                half shadowAmount = MainLightRealtimeShadow(shadowCoord);
                 half3 lambert = LightingLambert(light.color, light.direction, normal);
                 
                 half3 viewDir = GetWorldSpaceNormalizeViewDir(i.positionWS);
