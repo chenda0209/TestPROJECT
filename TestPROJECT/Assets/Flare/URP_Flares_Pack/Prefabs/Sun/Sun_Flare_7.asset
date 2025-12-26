@@ -18,20 +18,20 @@ MonoBehaviour:
     positionOffset: {x: 0, y: 0}
     angularOffset: 0
     translationScale: {x: 1, y: 1}
-    m_LocalIntensity: 1.4
+    m_LocalIntensity: 2
     lensFlareTexture: {fileID: 2800000, guid: abbedc33c116dc7409224267f44be388, type: 3}
-    uniformScale: 62.2
+    uniformScale: 32
     sizeXY: {x: 1, y: 1}
     allowMultipleElement: 0
     m_Count: 5
     preserveAspectRatio: 0
     rotation: 0
-    tint: {r: 0.7169812, g: 0.36187258, b: 0.36187258, a: 0.5}
+    tint: {r: 1, g: 1, b: 1, a: 0.5}
     blendMode: 0
     autoRotate: 1
     flareType: 0
     modulateByLightColor: 0
-    isFoldOpened: 1
+    isFoldOpened: 0
     distribution: 0
     lengthSpread: 1
     positionCurve:
@@ -179,9 +179,9 @@ MonoBehaviour:
     positionOffset: {x: 0, y: 0}
     angularOffset: 0
     translationScale: {x: 1, y: 1}
-    m_LocalIntensity: 0.53
+    m_LocalIntensity: 1
     lensFlareTexture: {fileID: 2800000, guid: 22331109601ff324aa59c693513ad9f2, type: 3}
-    uniformScale: 22.3
+    uniformScale: 24
     sizeXY: {x: 1, y: 1}
     allowMultipleElement: 0
     m_Count: 5
@@ -192,7 +192,7 @@ MonoBehaviour:
     autoRotate: 1
     flareType: 0
     modulateByLightColor: 0
-    isFoldOpened: 1
+    isFoldOpened: 0
     distribution: 0
     lengthSpread: 1
     positionCurve:
@@ -340,20 +340,20 @@ MonoBehaviour:
     positionOffset: {x: 0, y: 0}
     angularOffset: 0
     translationScale: {x: 1, y: 1}
-    m_LocalIntensity: 1
+    m_LocalIntensity: 4
     lensFlareTexture: {fileID: 2800000, guid: 638e15d705e377c449adb5de3a9d557f, type: 3}
-    uniformScale: 11.45
-    sizeXY: {x: 1, y: 1}
+    uniformScale: 9
+    sizeXY: {x: 1.5, y: 1}
     allowMultipleElement: 0
-    m_Count: 5
+    m_Count: 2
     preserveAspectRatio: 0
     rotation: 101.7
-    tint: {r: 1, g: 1, b: 1, a: 0.5}
+    tint: {r: 0.7830189, g: 0.7830189, b: 0.7830189, a: 1}
     blendMode: 0
     autoRotate: 1
     flareType: 0
     modulateByLightColor: 0
-    isFoldOpened: 1
+    isFoldOpened: 0
     distribution: 0
     lengthSpread: 1
     positionCurve:

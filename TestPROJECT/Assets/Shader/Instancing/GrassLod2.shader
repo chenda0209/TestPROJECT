@@ -90,6 +90,7 @@ Shader "Custom/GrassLod2"
                 half2 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
                 float3 normal : NORMAL;
+                float3 positionOS: TEXCOORD4;
                 float3 positionWS: TEXCOORD3;
                 float4 vcolor : TEXCOORD2;
                 // UNITY_VERTEX_INPUT_INSTANCE_ID // necessary only if you want to access instanced properties in fragment Shader.
@@ -371,7 +372,7 @@ Shader "Custom/GrassLod2"
                 half3 brdf = (brdfData.diffuse + specular * brdfData.specular) * lambert ;
                 float3 GI = SampleSH(normal);
 
-                return half4(brdf + GI * col.rgb * _Color.rgb, 1);
+                return half4((brdf * lambert + GI * col.rgb * _Color.rgb ) * i.positionOS.y, 1);
             }
             ENDHLSL
         }

@@ -110,6 +110,7 @@ MonoBehaviour:
       atime6: 0
       atime7: 0
       m_Mode: 0
+      m_ColorSpace: -1
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     m_IntensityVariation: 0.75
@@ -270,6 +271,7 @@ MonoBehaviour:
       atime6: 0
       atime7: 0
       m_Mode: 0
+      m_ColorSpace: -1
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     m_IntensityVariation: 0.75
@@ -430,6 +432,7 @@ MonoBehaviour:
       atime6: 0
       atime7: 0
       m_Mode: 0
+      m_ColorSpace: -1
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     m_IntensityVariation: 0.75
@@ -590,6 +593,7 @@ MonoBehaviour:
       atime6: 0
       atime7: 0
       m_Mode: 0
+      m_ColorSpace: -1
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     m_IntensityVariation: 0.75
@@ -658,7 +662,7 @@ MonoBehaviour:
     positionOffset: {x: 0, y: 0}
     angularOffset: 0
     translationScale: {x: 1, y: 1}
-    m_LocalIntensity: 0.85
+    m_LocalIntensity: 4
     lensFlareTexture: {fileID: 2800000, guid: 566fba077b529eb42be00e7fae1b68eb, type: 3}
     uniformScale: 7.5
     sizeXY: {x: 1, y: 1}
@@ -666,7 +670,7 @@ MonoBehaviour:
     m_Count: 5
     preserveAspectRatio: 0
     rotation: 107.4
-    tint: {r: 1, g: 1, b: 1, a: 0.5}
+    tint: {r: 1, g: 1, b: 1, a: 0.45490196}
     blendMode: 0
     autoRotate: 1
     flareType: 0
@@ -750,6 +754,7 @@ MonoBehaviour:
       atime6: 0
       atime7: 0
       m_Mode: 0
+      m_ColorSpace: -1
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     m_IntensityVariation: 0.75
@@ -910,6 +915,7 @@ MonoBehaviour:
       atime6: 0
       atime7: 0
       m_Mode: 0
+      m_ColorSpace: -1
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     m_IntensityVariation: 0.75
@@ -1070,6 +1076,7 @@ MonoBehaviour:
       atime6: 0
       atime7: 0
       m_Mode: 0
+      m_ColorSpace: -1
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     m_IntensityVariation: 0.75

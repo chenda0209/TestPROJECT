@@ -22,6 +22,8 @@ Texture2D<float4> _HeightMap;
 SamplerState LinearClampSampler; // 只要 C# 传了图，Unity 会自动处理采样器
 
 uint _InstanceCount; // 一起实例化的总数量
+uint _GrassEachMeter; // 每米草数量
+uint _ChunkSize; // 一格多少米
 float _TerrainHeight;
 
 float4 _Threshold; // lod远近设置
@@ -42,11 +44,11 @@ float GetRandom(float2 st)
 void GenerateGrass (uint3 id : SV_DispatchThreadID)
 {
     // 1. 索引计算 (1米4棵草，一行128个)
-    uint index = id.y * 128 + id.x; 
-    uint globalIdx = _TargetChunkID * 16384 + index;
+    uint index = id.y * _ChunkSize * _GrassEachMeter + id.x; 
+    uint globalIdx = _TargetChunkID * _ChunkSize * _ChunkSize * _GrassEachMeter * _GrassEachMeter + index;
 
-    // 2. 计算世界坐标 (id.x 是 0~127，间距 0.25)
-    float2 localOffset = id.xy * 0.25; 
+    // 2. 计算世界坐标 (id.x 是 0~127，间距 1 / _GrassEachMeter)
+    float2 localOffset = (float2)id.xy / _GrassEachMeter; 
     float3 worldPos = _ChunkBasePos + float3(localOffset.x, 0, localOffset.y);
     
     // 假设地形大小是 1024，请确保这里的 1024.0 和你实际地形尺寸一致
@@ -58,7 +60,7 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
     float height = UnpackHeightmap(_HeightMap.SampleLevel(LinearClampSampler, worldUV, 0));
     
     // 计算实际世界高度：地形物体自身的Y轴位置 + (归一化高度 * 地形设定的最大高度)
-    float worldY = _TerrainBasePos.y + (height * _TerrainHeight)*2;
+    float worldY = _TerrainBasePos.y + (height * _TerrainHeight) * 2;
 
     // 3. 采样权重图 (你之前的逻辑)
     float weight = _SplatMap.SampleLevel(LinearClampSampler, worldUV, 0).r;
@@ -66,15 +68,14 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
     // 4. 应用随机抖动和生存判定
     float2 rand = float2(GetRandom(worldUV), GetRandom(worldUV + 1.5));
     float2 jitter = (rand - 0.5) * 0.25; 
-    float survivalThreshold = GetRandom(worldUV + 3.14); 
+    // float survivalThreshold = GetRandom(worldUV + 3.14); 
 
-    if (weight > survivalThreshold) 
+    if (weight > 0.9) 
     {
         // 最终坐标：Y轴使用刚算出来的 worldY
         _GrassDataBuffer[globalIdx].worldPos = float3(worldPos.x + jitter.x, worldY, worldPos.z + jitter.y);
         _GrassDataBuffer[globalIdx].rotation = GetRandom(worldUV + 7.7) * 6.2831;
         _GrassDataBuffer[globalIdx].scale = 0.8 + weight * 0.4; 
-
     }
     else 
     {
@@ -87,8 +88,8 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
 void FrustumCulling (uint3 id : SV_DispatchThreadID)
 {
     // 1. 确定当前线程正在处理“可见清单”中的第几个 Chunk
-    // 假设 id.x 是从 0 增长到 (可见块数 * 16384)
-    uint visibleChunkSeq = id.x / 16384; 
+    // 假设 id.x 是从 0 增长到 (可见块数)
+    uint visibleChunkSeq = id.x / (_ChunkSize * _ChunkSize * _GrassEachMeter * _GrassEachMeter); 
     
     // 安全检查：超过可见总数直接退
     if (visibleChunkSeq >= _ActiveChunkCount) return;
@@ -97,13 +98,14 @@ void FrustumCulling (uint3 id : SV_DispatchThreadID)
     int realSlotID = _ActiveChunkIDsBuffer[visibleChunkSeq];
     
     // 3. 计算这棵草在该 Chunk 内部的偏移
-    uint grassIdxInChunk = id.x % 16384;
+    uint grassIdxInChunk = id.x % (_ChunkSize * _ChunkSize * _GrassEachMeter * _GrassEachMeter);
 
     // 4. 算出这棵草在 _GrassDataBuffer (全量大 Buffer) 中的最终位置
-    uint index = (uint)realSlotID * 16384 + grassIdxInChunk;
+    uint index = (uint)realSlotID * (_ChunkSize * _ChunkSize * _GrassEachMeter * _GrassEachMeter) + grassIdxInChunk;
 
     // 5. 读取数据
     GrassData grass = _GrassDataBuffer[index];
+    // 把占位的草剔除掉
     if (grass.scale <= 0) return;
     // 剔除所需数据
     float4 center = float4(grass.worldPos, 1); // 包围球中心 (x, y, z)

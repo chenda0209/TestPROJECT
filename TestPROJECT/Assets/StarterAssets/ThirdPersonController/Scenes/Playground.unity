@@ -1641,7 +1641,7 @@ PrefabInstance:
     - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
       propertyPath: viewRadius
-      value: 164
+      value: 192
       objectReference: {fileID: 0}
     - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
@@ -1671,7 +1671,7 @@ PrefabInstance:
     - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
       propertyPath: grassEachMeter
-      value: 4
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544,
         type: 3}
