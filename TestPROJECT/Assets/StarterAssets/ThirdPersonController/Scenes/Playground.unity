@@ -1235,6 +1235,61 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!1 &1510842703
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1510842705}
+  - component: {fileID: 1510842704}
+  m_Layer: 0
+  m_Name: ChunkScanCircle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1510842704
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1510842703}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9a595041680c7e4093a5e1bf802b647, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  player: {fileID: 1762682262}
+  cs: {fileID: 7200000, guid: f1482d3a83178aa41a254a3df19694d5, type: 3}
+  threshold: {x: 12, y: 32, z: 128, w: 0}
+  grassEachMeter: 3
+  viewRadius: 192
+  Lod0grassPrefab: {fileID: 3569858589914721802, guid: 624a1f230d8e54a4fb8089d502f94c41,
+    type: 3}
+  Lod1grassPrefab: {fileID: 5828230166418348927, guid: 9ab3923eb6a27d146bb0a4b2eb518b4b,
+    type: 3}
+  Lod2grassPrefab: {fileID: 7305036322398922548, guid: 363281922b135ee4c87d760592520c6f,
+    type: 3}
+--- !u!4 &1510842705
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1510842703}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 86.03634, y: 44.547607, z: 40.500008}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1594990709
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1701,7 +1756,8 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 8508069147792250252, guid: 64dce48905ffd9b4293e595fa6941544, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
@@ -3443,3 +3499,4 @@ SceneRoots:
   - {fileID: 45659299}
   - {fileID: 2115725966}
   - {fileID: 1666818171}
+  - {fileID: 1510842705}

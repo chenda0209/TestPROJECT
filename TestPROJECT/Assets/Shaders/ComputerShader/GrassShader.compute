@@ -2,6 +2,7 @@
 #pragma kernel GenerateGrass
 #pragma kernel FrustumCulling
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "../HLSL/CustomHLSL.hlsl"
 
 struct GrassData
 {
@@ -34,11 +35,6 @@ uint _TargetChunkID;     // Chunk的ID
 float3 _ChunkBasePos;   // 这一块的左下角世界坐标 (如 32, 0, 64)
 float3 _TerrainBasePos;
 
-// 一个经典的基于坐标采样的随机函数
-float GetRandom(float2 st)
-{
-    return frac(sin(dot(st.xy, float2(12.9898, 78.233))) * 43758.5453123);
-}
 
 [numthreads(8,8,1)]
 void GenerateGrass (uint3 id : SV_DispatchThreadID)
@@ -66,7 +62,7 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
     float4 splat = _SplatMap.SampleLevel(LinearClampSampler, worldUV, 0);
 
     // 4. 应用随机抖动和生存判定
-    float2 rand = float2(GetRandom(worldUV), GetRandom(worldUV + 1.5));
+    float2 rand = float2(RandomValue(worldUV), RandomValue(worldUV + 1.5));
     float2 jitter = (rand - 0.5) * 0.25; 
     // float survivalThreshold = GetRandom(worldUV + 3.14); 
 
@@ -74,8 +70,8 @@ void GenerateGrass (uint3 id : SV_DispatchThreadID)
     {
         // 最终坐标：Y轴使用刚算出来的 worldY
         _GrassDataBuffer[globalIdx].worldPos = float3(worldPos.x + jitter.x, worldY, worldPos.z + jitter.y);
-        _GrassDataBuffer[globalIdx].rotation = GetRandom(worldUV + 7.7) * 6.2831;
-        _GrassDataBuffer[globalIdx].scale = 0.5 + rand * 0.5; 
+        _GrassDataBuffer[globalIdx].rotation = RandomValue(worldUV + 7.7) * 6.2831;
+        _GrassDataBuffer[globalIdx].scale = 0.5 + rand.x * 0.5; 
     }
     else 
     {
