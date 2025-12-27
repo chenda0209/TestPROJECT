@@ -1267,7 +1267,7 @@ MonoBehaviour:
   player: {fileID: 1762682262}
   cs: {fileID: 7200000, guid: f1482d3a83178aa41a254a3df19694d5, type: 3}
   threshold: {x: 12, y: 32, z: 128, w: 0}
-  grassEachMeter: 3
+  grassEachMeter: 2
   viewRadius: 192
   Lod0grassPrefab: {fileID: 3569858589914721802, guid: 624a1f230d8e54a4fb8089d502f94c41,
     type: 3}

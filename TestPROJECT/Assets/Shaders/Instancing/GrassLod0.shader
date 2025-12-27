@@ -378,7 +378,7 @@ Shader "Custom/GrassLod0"
                 half3 brdf = (brdfData.diffuse + specular * brdfData.specular) ;
                 float3 GI = SampleSH(normal);
 
-                return half4((brdf * lambert * light.shadowAttenuation + GI * col.rgb * _Color.rgb) * i.positionOS.y, 1);
+                return half4((brdf * lambert * light.shadowAttenuation + GI * col.rgb * _Color.rgb) * i.vcolor.r, 1);
             }
             ENDHLSL
         }
