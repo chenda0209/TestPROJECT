@@ -7,116 +7,125 @@ public class TextureArrayWizard : EditorWindow
     private List<Texture2D> _textureList = new List<Texture2D> { null, null, null };
     private Vector2 _scrollPos;
 
-    [MenuItem("Tools/TextureArrayWizard")]
-    public static void ShowWindow()
-    {
-        var window = GetWindow<TextureArrayWizard>("纹理数组合成");
-        window.minSize = new Vector2(400, 500);
-    }
+    // 合成选项
+    private bool _generateMipmaps = true;
+    private int _anisoLevel = 1;
+    private FilterMode _filterMode = FilterMode.Bilinear;
+    private TextureFormat _targetFormat = TextureFormat.DXT5; // 默认给个通用的
+
+    [MenuItem("Tools/高级纹理数组合成")]
+    public static void ShowWindow() => GetWindow<TextureArrayWizard>("高级纹理合成");
 
     void OnGUI()
     {
         EditorGUILayout.Space(10);
-        GUILayout.Label("草类纹理数组合成助手", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox("提示：所有贴图必须具有相同的尺寸(如1024x1024)和格式。", MessageType.Info);
-
-        _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
+        EditorGUILayout.LabelField("1. 贴图预览 (自动跳过空白)", EditorStyles.boldLabel);
         
-        // 动态列表绘制
+        _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos, GUILayout.Height(350));
         for (int i = 0; i < _textureList.Count; i++)
         {
-            EditorGUILayout.BeginHorizontal();
-            _textureList[i] = (Texture2D)EditorGUILayout.ObjectField($"物种 ID [{i}]", _textureList[i], typeof(Texture2D), false);
-            if (GUILayout.Button("移除", GUILayout.Width(50)))
-            {
-                _textureList.RemoveAt(i);
-            }
-            EditorGUILayout.EndHorizontal();
+            DrawTextureRow(i);
         }
-
-        if (GUILayout.Button("添加新贴图槽位"))
-        {
-            _textureList.Add(null);
-        }
-
         EditorGUILayout.EndScrollView();
 
-        EditorGUILayout.Space(20);
+        if (GUILayout.Button("添加新槽位 +", GUILayout.Height(30))) _textureList.Add(null);
 
-        // --- 合成按钮部分 ---
-        GUI.backgroundColor = Color.green; // 按钮变绿，醒目
-        if (GUILayout.Button("一键生成纹理数组 (TextureArray)", GUILayout.Height(60))) 
-        {
-            ExecuteCombine();
-        }
-        GUI.backgroundColor = Color.white;
         EditorGUILayout.Space(10);
+        DrawOptions();
+
+        EditorGUILayout.Space(10);
+        GUI.backgroundColor = Color.green;
+        if (GUILayout.Button("开始硬件级合成", GUILayout.Height(60))) ExecuteCombine();
+        GUI.backgroundColor = Color.white;
+    }
+
+    private void DrawTextureRow(int i)
+    {
+        EditorGUILayout.BeginVertical("box");
+        EditorGUILayout.BeginHorizontal();
+        
+        // 贴图框靠左
+        _textureList[i] = (Texture2D)EditorGUILayout.ObjectField(GUIContent.none, _textureList[i], typeof(Texture2D), false, GUILayout.Width(80), GUILayout.Height(80));
+
+        GUILayout.Space(10);
+        if (_textureList[i] != null)
+        {
+            string info = $"贴图 ID: {i}\n尺寸: {_textureList[i].width}x{_textureList[i].height}\n格式: {_textureList[i].format}";
+            
+            // 只要格式不匹配选定的合成格式，就标红预警
+            if (_textureList[i].format != _targetFormat) GUI.color = Color.red;
+            
+            EditorGUILayout.LabelField(info, GUILayout.ExpandWidth(true), GUILayout.Height(80));
+            GUI.color = Color.white;
+        }
+        else
+        {
+            EditorGUILayout.LabelField("< 空白槽位 >", EditorStyles.centeredGreyMiniLabel, GUILayout.ExpandWidth(true), GUILayout.Height(80));
+        }
+
+        if (GUILayout.Button("X", GUILayout.Width(25), GUILayout.Height(80))) _textureList.RemoveAt(i);
+        
+        EditorGUILayout.EndHorizontal();
+        EditorGUILayout.EndVertical();
+    }
+
+    private void DrawOptions()
+    {
+        EditorGUILayout.LabelField("2. 合成参数 (必须与贴图格式一致才能硬件直传)", EditorStyles.boldLabel);
+        EditorGUILayout.BeginVertical("box");
+        _generateMipmaps = EditorGUILayout.Toggle("生成 Mipmaps", _generateMipmaps);
+        _anisoLevel = EditorGUILayout.IntSlider("各向异性等级", _anisoLevel, 0, 16);
+        _filterMode = (FilterMode)EditorGUILayout.EnumPopup("过滤模式", _filterMode);
+        
+        // 把格式选项还给你！
+        _targetFormat = (TextureFormat)EditorGUILayout.EnumPopup("目标合成格式", _targetFormat);
+        
+        EditorGUILayout.HelpBox("提示：如果点击合成报错，请检查贴图格式是否与上方选择的格式一致。", MessageType.Info);
+        EditorGUILayout.EndVertical();
     }
 
     private void ExecuteCombine()
     {
-        // 1. 判空检查
-        List<Texture2D> validTextures = new List<Texture2D>();
-        foreach (var t in _textureList)
-        {
-            if (t != null) validTextures.Add(t);
-        }
+        List<Texture2D> valids = _textureList.FindAll(t => t != null);
+        if (valids.Count == 0) return;
 
-        if (validTextures.Count == 0)
-        {
-            EditorUtility.DisplayDialog("错误", "你还没拖入任何贴图呢！", "我知道了");
-            return;
-        }
+        int w = valids[0].width;
+        int h = valids[0].height;
 
-        // 2. 规格检查（以第一张贴图为基准）
-        int w = validTextures[0].width;
-        int h = validTextures[0].height;
-        TextureFormat fmt = validTextures[0].format;
-
-        foreach (var t in validTextures)
+        // 硬件拷贝前最后的尊严：格式校验
+        foreach (var t in valids)
         {
-            if (t.width != w || t.height != h)
+            if (t.format != _targetFormat)
             {
-                EditorUtility.DisplayDialog("规格错误", $"贴图 [{t.name}] 尺寸为 {t.width}x{t.height}，不符合基准尺寸 {w}x{h}！", "去修改");
-                return;
-            }
-            if (t.format != fmt)
-            {
-                EditorUtility.DisplayDialog("格式错误", $"贴图 [{t.name}] 格式为 {t.format}，与基准格式 {fmt} 不一致！\n请在导入设置中统一压缩格式。", "去修改");
+                EditorUtility.DisplayDialog("格式冲突", 
+                    $"贴图 [{t.name}] 的格式是 {t.format}，\n但你选择的合成格式是 {_targetFormat}。\n\n硬件直传要求格式必须严格一致，请修改其中之一。", "知道了");
                 return;
             }
         }
 
-        // 3. 开始合成
-        string path = EditorUtility.SaveFilePanelInProject("保存纹理数组", "NewTextureArray", "asset", "选择保存位置");
+        string path = EditorUtility.SaveFilePanelInProject("保存数组", "FinalGrassArray", "asset", "确定");
         if (string.IsNullOrEmpty(path)) return;
 
-        try
-        {
-            // 创建数组对象
-            Texture2DArray texArray = new Texture2DArray(w, h, validTextures.Count, fmt, true);
-            texArray.filterMode = validTextures[0].filterMode;
-            texArray.wrapMode = validTextures[0].wrapMode;
+        // 走硬件 Copy 路径，不需要 Read/Write 权限
+        Texture2DArray array = new Texture2DArray(w, h, valids.Count, _targetFormat, _generateMipmaps, false);
+        array.anisoLevel = _anisoLevel;
+        array.filterMode = _filterMode;
+        array.wrapMode = TextureWrapMode.Repeat;
 
-            for (int i = 0; i < validTextures.Count; i++)
+        for (int i = 0; i < valids.Count; i++)
+        {
+            int mips = _generateMipmaps ? valids[i].mipmapCount : 1;
+            for (int m = 0; m < mips; m++)
             {
-                for (int m = 0; m < validTextures[i].mipmapCount; m++)
-                {
-                    Graphics.CopyTexture(validTextures[i], 0, m, texArray, i, m);
-                }
+                // GPU 内部直传
+                Graphics.CopyTexture(valids[i], 0, m, array, i, m);
             }
+        }
 
-            AssetDatabase.CreateAsset(texArray, path);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            
-            // 选中生成的资源
-            Selection.activeObject = texArray;
-            EditorUtility.DisplayDialog("成功", $"美哉！{validTextures.Count}张贴图已成功合成为纹理数组。\n位置：{path}", "太棒了");
-        }
-        catch (System.Exception e)
-        {
-            EditorUtility.DisplayDialog("意外错误", e.Message, "好吧");
-        }
+        AssetDatabase.CreateAsset(array, path);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Selection.activeObject = array;
+        EditorUtility.DisplayDialog("完成", "硬件直传成功！", "");
     }
 }
